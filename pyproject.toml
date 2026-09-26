@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codepilot-harness"
+version = "0.1.0"
+description = "Autonomous Coding-Agent Harness around Standardized Foundation Models"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "pydantic>=2.0",
+    "pytest>=7.0",
+    "requests>=2.28",
+]
+
+[project.scripts]
+codepilot = "codepilot.cli:main"
