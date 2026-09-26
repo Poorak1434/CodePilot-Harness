@@ -303,16 +303,10 @@ class InteractiveShell:
             print("=" * 70 + "\n")
 
         # Direct Output Mode (Clean output display)
-        files_mod = list(report['verification']['files_modified'])
+        # Only inspect files modified during THIS specific task run (from telemetry metrics)
+        task_modified = report.get('telemetry', {}).get('files_modified', [])
         valid_exts = (".py", ".cpp", ".c", ".h", ".hpp", ".js", ".ts", ".java", ".json", ".md", ".html", ".css", ".txt")
-
-        # Also check workspace for target file created during this run if missing from git modified list
-        known_scripts = ["solution.py", "solution.c", "solution.cpp", "solution.js", "add_numbers.py", "multiply_numbers.py", "sandbox_snippet.py"]
-        for ks in known_scripts:
-            if (self.repo_path / ks).exists() and ks not in files_mod:
-                files_mod.append(ks)
-
-        source_files = [f for f in files_mod if any(f.endswith(ext) for ext in valid_exts)]
+        source_files = [f for f in task_modified if any(f.endswith(ext) for ext in valid_exts)]
         source_files = [f for f in source_files if not f.endswith("EVIDENCE_REPORT.json") and not f.endswith("EVIDENCE_REPORT.md")]
 
         if source_files:
