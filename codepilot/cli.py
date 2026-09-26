@@ -8,13 +8,26 @@ from pathlib import Path
 from codepilot import __version__
 from codepilot.agent.loop import AutonomousAgentLoop
 from codepilot.safety.policy import SafetyPolicy
-from codepilot.verification import VerificationRunner
-
-
 from codepilot.interactive import InteractiveShell
 
 
+def load_env_file():
+    """Auto-load .env configuration file if present."""
+    env_path = Path(".env")
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ[k.strip()] = v.strip().strip('"').strip("'")
+
+
 def main():
+    load_env_file()
+    
+    # Determine default provider (use gemini if key present, else mock)
+    default_p = os.getenv("DEFAULT_PROVIDER") or ("gemini" if os.getenv("GEMINI_API_KEY") else "mock")
+
     parser = argparse.ArgumentParser(
         prog="codepilot",
         description="CodePilot - Autonomous Coding-Agent Harness for Foundation Models"
@@ -26,14 +39,14 @@ def main():
     # `chat` / interactive subcommand
     chat_parser = subparsers.add_parser("chat", help="Start continuous interactive chat / REPL mode.")
     chat_parser.add_argument("--repo", type=str, default=".", help="Target repository directory path.")
-    chat_parser.add_argument("--provider", type=str, default="mock", choices=["gemini", "openai", "anthropic", "ollama", "mock"], help="LLM Provider.")
+    chat_parser.add_argument("--provider", type=str, default=default_p, choices=["gemini", "openai", "anthropic", "ollama", "mock"], help="LLM Provider.")
     chat_parser.add_argument("--model", type=str, default=None, help="Specific model name.")
 
     # `fix` subcommand
     fix_parser = subparsers.add_parser("fix", help="Execute autonomous coding loop for a single task.")
     fix_parser.add_argument("--repo", type=str, default=".", help="Target repository directory path.")
     fix_parser.add_argument("--issue", type=str, required=True, help="Task or issue description.")
-    fix_parser.add_argument("--provider", type=str, default="mock", choices=["gemini", "openai", "anthropic", "ollama", "mock"], help="LLM Provider.")
+    fix_parser.add_argument("--provider", type=str, default=default_p, choices=["gemini", "openai", "anthropic", "ollama", "mock"], help="LLM Provider.")
     fix_parser.add_argument("--model", type=str, default=None, help="Specific model name.")
     fix_parser.add_argument("--max-retries", type=int, default=5, help="Maximum number of retry attempts.")
     fix_parser.add_argument("--test-cmd", type=str, default=None, help="Custom test command.")
@@ -49,7 +62,7 @@ def main():
     # Default to interactive chat shell if no command provided
     if not args.command or args.command == "chat":
         repo_arg = getattr(args, "repo", ".")
-        provider_arg = getattr(args, "provider", "mock")
+        provider_arg = getattr(args, "provider", default_p)
         model_arg = getattr(args, "model", None)
         shell = InteractiveShell(initial_repo=repo_arg, provider=provider_arg, model_name=model_arg)
         shell.start()
