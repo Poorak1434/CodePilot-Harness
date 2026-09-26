@@ -62,6 +62,12 @@ class VerificationRunner:
                 if len(parts) >= 2:
                     modified_files.append(parts[-1])
 
+        # Also include generated solution files in workspace
+        ws = self.safety.workspace_root
+        for ks in ("solution.py", "solution.c", "solution.cpp", "solution.js", "add_numbers.py", "multiply_numbers.py", "sandbox_snippet.py"):
+            if (ws / ks).exists() and ks not in modified_files:
+                modified_files.append(ks)
+
         if not test_res.success:
             return VerificationResult(
                 passed=False,
