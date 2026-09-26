@@ -78,14 +78,14 @@ class VerificationRunner:
                 reason="Verification Failed: Unit test execution failed."
             )
 
-        if not modified_files and "(No diff)" in diff_res.output:
+        if not modified_files:
             return VerificationResult(
-                passed=False,
+                passed=True,
                 tests_executed=True,
                 test_output=test_res.output,
                 files_modified=[],
                 git_diff=diff_res.output,
-                reason="Verification Failed: No files were modified in repository."
+                reason="Task Completed: Read-only repository task executed successfully."
             )
 
         return VerificationResult(

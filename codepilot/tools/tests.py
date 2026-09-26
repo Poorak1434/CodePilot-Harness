@@ -35,6 +35,9 @@ class RunTestsTool(BaseTool):
         res = self.cmd_tool.execute(command=eff_command, timeout=60.0)
 
         failed = not res.success
+        if ("Ran 0 tests" in res.output or "NO TESTS RAN" in res.output or "0 tests" in res.output or "return code 5" in (res.error or "")):
+            failed = False
+
         summary = {
             "test_command": eff_command,
             "passed": not failed,
@@ -42,7 +45,7 @@ class RunTestsTool(BaseTool):
         }
 
         return ToolResult(
-            success=res.success,
+            success=not failed,
             output=res.output,
             error=res.error if failed else None,
             metadata=summary

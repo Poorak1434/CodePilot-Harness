@@ -1,12 +1,12 @@
 """
 Interactive Chat & REPL mode for CodePilot Harness.
-Supports repository tasks, direct code snippet pasting & debugging, system commands, and live API key management.
+Supports multi-turn general conversations, repo inspection, code generation, debugging, and live API key management.
 """
 import sys
 import os
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from codepilot import __version__
 from codepilot.agent.loop import AutonomousAgentLoop
 from codepilot.safety.policy import SafetyPolicy
@@ -22,6 +22,7 @@ class InteractiveShell:
         self.max_retries = 5
         self.test_command: Optional[str] = None
         self.verbose = False
+        self.history: List[Dict[str, Any]] = []
 
     def start(self) -> None:
         self._print_header()
@@ -39,16 +40,9 @@ class InteractiveShell:
                         break
                     continue
 
-                # Check if input starts a multi-line code block ```
                 if user_input.startswith("```"):
                     user_input = self._read_multiline_block(first_line=user_input)
 
-                # Filter out single line code fragments (e.g. 'else:', 'return ...') from accidental multi-line pastes
-                if self._is_incomplete_code_fragment(user_input):
-                    print("\033[1;33m[Detected partial code line fragment. Use '/paste' command to paste multi-line code.]\033[0m")
-                    continue
-
-                # Execute task issue with Ctrl+C interrupt protection
                 try:
                     self._run_task(user_input)
                 except KeyboardInterrupt:
@@ -60,18 +54,9 @@ class InteractiveShell:
             except KeyboardInterrupt:
                 print("\n\033[1;33m[Press Ctrl+C again or type /exit to exit CodePilot]\033[0m")
 
-    def _is_incomplete_code_fragment(self, text: str) -> bool:
-        """Checks if input is a partial code fragment from accidental multi-line paste."""
-        stripped = text.strip()
-        fragments = ("else:", "elif ", "return ", "def ", "class ", "if __name__", "main()", "print(", "greeting =", "active_users =")
-        if stripped in ("else:", "main()", "pass") or (len(stripped) < 40 and any(stripped.startswith(f) for f in fragments)):
-            if not any(k in stripped.lower() for k in ("fix", "bug", "issue", "create", "add", "update", "test")):
-                return True
-        return False
-
     def _read_multiline_block(self, first_line: str = "") -> str:
         lines = [first_line] if first_line else []
-        print("\033[1;33m[Entering multi-line code mode. Type 'END' or '```' on a new line to finish]\033[0m")
+        print("\033[1;33m[Entering multi-line text mode. Type 'END' or '```' on a new line to finish]\033[0m")
         while True:
             try:
                 line = input("... ").rstrip()
@@ -86,11 +71,11 @@ class InteractiveShell:
 
     def _print_header(self) -> None:
         print("\033[1;36m" + "=" * 70 + "\033[0m")
-        print(f"\033[1;36m  🚀 CodePilot AI Coding Harness v{__version__} — Interactive Mode\033[0m")
+        print(f"\033[1;36m  🚀 CodePilot AI Coding Agent v{__version__} — Interactive Shell\033[0m")
         print("\033[1;36m" + "=" * 70 + "\033[0m")
         print(f" • Target Repository : \033[1;32m{self.repo_path}\033[0m")
         print(f" • Model Provider   : \033[1;32m{self.provider}\033[0m")
-        print(f" • Slash Commands   : \033[1;33m/paste, /repo <path>, /provider <name>, /key <api_key>, /verify, /diff, /status, /help, /exit\033[0m")
+        print(f" • Slash Commands   : \033[1;33m/paste, /repo <path>, /provider <name>, /key <api_key>, /verify, /diff, /status, /clear, /exit\033[0m")
         print("\033[1;36m" + "=" * 70 + "\033[0m\n")
 
     def _handle_slash_command(self, cmd_line: str) -> bool:
@@ -104,27 +89,28 @@ class InteractiveShell:
 
         elif cmd == "/help":
             print("\nAvailable Commands:")
-            print("  /paste            - Paste multi-line code snippet for quick debugging & fix")
+            print("  /paste            - Paste multi-line text or code snippet")
             print("  /repo <path>      - Set active repository directory")
-            print("  /provider <name>  - Set model provider (gemini, openai, anthropic, mock)")
+            print("  /provider <name>  - Set model provider (groq, gemini, openai, anthropic, ollama, mock)")
             print("  /key <api_key>    - Set API Key for current model provider")
-            print("  /test-cmd <cmd>   - Set custom test command (e.g. pytest or python3 -m unittest)")
+            print("  /test-cmd <cmd>   - Set custom test command (e.g. pytest)")
             print("  /verify           - Run independent verification checks on repo")
             print("  /diff             - Show current uncommitted git diff")
             print("  /status           - Show repository git status")
-            print("  /clear            - Clear terminal screen")
+            print("  /clear            - Clear terminal screen and history")
             print("  /exit             - Exit interactive shell\n")
 
-        elif cmd in ("/paste", "/code", "/fixcode"):
+        elif cmd in ("/paste", "/code"):
             code_text = self._read_multiline_block()
             if code_text.strip():
-                self._run_snippet_task(code_text)
+                self._run_task(code_text)
 
         elif cmd == "/key":
             if not arg:
-                print(f"Current API key for {self.provider}: {'[SET]' if os.getenv(f'{self.provider.upper()}_API_KEY') else '[NOT SET]'}")
+                print(f"Current API key for {self.provider}: {'[SET]' if os.getenv(f'{self.provider.upper()}_API_KEY') or os.getenv('CODEPILOT_API_KEY') else '[NOT SET]'}")
             else:
                 os.environ[f"{self.provider.upper()}_API_KEY"] = arg
+                os.environ["CODEPILOT_API_KEY"] = arg
                 print(f"\033[1;32mAPI Key updated for {self.provider.upper()}.\033[0m")
 
         elif cmd == "/repo":
@@ -141,16 +127,11 @@ class InteractiveShell:
         elif cmd in ("/groq", "/gemini", "/openai", "/anthropic", "/ollama", "/mock"):
             p_name = cmd[1:]
             self.provider = p_name
-            env_var = f"{self.provider.upper()}_API_KEY"
             if arg:
-                os.environ[env_var] = arg
+                os.environ[f"{self.provider.upper()}_API_KEY"] = arg
+                os.environ["CODEPILOT_API_KEY"] = arg
                 print(f"\033[1;32mProvider set to {self.provider.upper()} and API Key updated.\033[0m")
             else:
-                if p_name != "mock" and not os.getenv(env_var):
-                    print(f"\033[1;33mNote: {env_var} is not set in environment.\033[0m")
-                    key_input = input(f"Enter {self.provider.upper()} API Key (or press Enter to skip): ").strip()
-                    if key_input:
-                        os.environ[env_var] = key_input
                 print(f"\033[1;32mProvider updated to: {self.provider}\033[0m")
 
         elif cmd == "/provider":
@@ -158,17 +139,11 @@ class InteractiveShell:
                 print(f"Current provider: {self.provider}")
             else:
                 p_lower = arg.lower()
-                if p_lower in ("gemini", "openai", "anthropic", "ollama", "mock"):
+                if p_lower in ("groq", "gemini", "openai", "anthropic", "ollama", "mock"):
                     self.provider = p_lower
-                    env_var = f"{self.provider.upper()}_API_KEY"
-                    if p_lower != "mock" and not os.getenv(env_var):
-                        print(f"\033[1;33mNote: {env_var} is not set in environment.\033[0m")
-                        key_input = input(f"Enter {self.provider.upper()} API Key (or press Enter to skip): ").strip()
-                        if key_input:
-                            os.environ[env_var] = key_input
                     print(f"\033[1;32mProvider updated to: {self.provider}\033[0m")
                 else:
-                    print("\033[1;31mInvalid provider. Choose from: gemini, openai, anthropic, ollama, mock\033[0m")
+                    print("\033[1;31mInvalid provider. Choose from: groq, gemini, openai, anthropic, ollama, mock\033[0m")
 
         elif cmd == "/test-cmd":
             if not arg:
@@ -204,13 +179,14 @@ class InteractiveShell:
 
         elif cmd in ("/quiet", "/clean"):
             self.verbose = False
-            print("\033[1;32m[Direct Clean Output Mode Enabled]\033[0m")
+            print("\033[1;32m[Clean Response Mode Enabled]\033[0m")
 
         elif cmd == "/verbose":
             self.verbose = True
             print("\033[1;32m[Verbose Telemetry Logging Enabled]\033[0m")
 
         elif cmd == "/clear":
+            self.history = []
             os.system("clear" if os.name != "nt" else "cls")
             self._print_header()
 
@@ -219,63 +195,7 @@ class InteractiveShell:
 
         return True
 
-    def _run_snippet_task(self, snippet_text: str) -> None:
-        """Handles pasted code snippet directly."""
-        clean_code = snippet_text.replace("```python", "").replace("```", "").strip()
-
-        # Save snippet to sandbox_snippet.py inside target repo
-        snippet_file = self.repo_path / "sandbox_snippet.py"
-        snippet_file.write_text(clean_code, encoding="utf-8")
-
-        test_cmd = self.test_command or "python3 sandbox_snippet.py"
-        task_desc = f"Fix and debug the code snippet in sandbox_snippet.py: {clean_code[:100]}"
-
-        agent_loop = AutonomousAgentLoop(
-            workspace_root=str(self.repo_path),
-            provider=self.provider,
-            model_name=self.model_name,
-            max_retries=self.max_retries,
-            test_command=test_cmd,
-            verbose=self.verbose
-        )
-
-        report = agent_loop.run(task_description=task_desc)
-
-        # Output the fixed final code snippet directly in terminal!
-        if snippet_file.exists():
-            fixed_code = snippet_file.read_text(encoding="utf-8")
-            print("\n\033[1;32m" + "=" * 70)
-            print("✨ OUTPUT:")
-            print("=" * 70 + "\033[0m")
-            print(fixed_code)
-            print("\033[1;32m" + "=" * 70 + "\033[0m\n")
-
-    def _cleanup_stale_scripts(self) -> None:
-        known_scripts = ["solution.c", "solution.cpp", "solution.py", "solution.js", "solution", "add_numbers.py", "multiply_numbers.py", "sandbox_snippet.py"]
-        for ks in known_scripts:
-            p = self.repo_path / ks
-            if p.exists():
-                try:
-                    p.unlink()
-                except Exception:
-                    pass
-
-    def _run_task(self, issue_description: str) -> None:
-        # Clean up previous task scratch files
-        self._cleanup_stale_scripts()
-
-        # Check if user input is raw code (contains def/class/function/import or multi-line code)
-        if ("def " in issue_description or "class " in issue_description or "import " in issue_description or "\n" in issue_description) and not issue_description.startswith("Fix "):
-            if self.verbose:
-                print("\033[1;33m[Detected raw code input. Processing code snippet debug & fix...]\033[0m")
-            self._run_snippet_task(issue_description)
-            return
-
-        if self.verbose:
-            print("\n" + "=" * 70)
-            print(f"▶ EXECUTING TASK: {issue_description}")
-            print("=" * 70)
-
+    def _run_task(self, user_text: str) -> None:
         agent_loop = AutonomousAgentLoop(
             workspace_root=str(self.repo_path),
             provider=self.provider,
@@ -285,44 +205,46 @@ class InteractiveShell:
             verbose=self.verbose
         )
 
-        report = agent_loop.run(task_description=issue_description)
+        report = agent_loop.run(task_description=user_text, history=self.history)
 
-        if self.verbose:
-            print("\n" + "=" * 70)
-            print("📊 TASK RESULT SUMMARY")
-            print("=" * 70)
-            status_colored = f"\033[1;32m{report['status']}\033[0m" if report["status"] == "VERIFIED_SUCCESS" else f"\033[1;31m{report['status']}\033[0m"
-            print(f" • Status           : {status_colored}")
-            metrics = report["telemetry"]
-            print(f" • Runtime          : {metrics['runtime_seconds']}s")
-            print(f" • Model Calls      : {metrics['model_calls']}")
-            print(f" • Token Usage      : {metrics.get('prompt_tokens', 0)} prompt / {metrics.get('completion_tokens', 0)} comp ({metrics.get('total_tokens', 0)} total)")
-            print(f" • Tool Invocations : {metrics['tool_calls']}")
-            print(f" • Retries / Fixes  : {metrics['retry_count']}")
-            print(f" • Modified Files   : {', '.join(report['verification']['files_modified']) or 'None'}")
-            print("=" * 70 + "\n")
+        # Record turns in conversation history
+        self.history.append({"role": "user", "content": user_text})
+        self.history.append({"role": "assistant", "content": report.get("last_thought", "")})
 
-        # Direct Output Mode (Clean output display)
-        # Only inspect files modified during THIS specific task run (from telemetry metrics)
-        task_modified = report.get('telemetry', {}).get('files_modified', [])
-        valid_exts = (".py", ".cpp", ".c", ".h", ".hpp", ".js", ".ts", ".java", ".json", ".md", ".html", ".css", ".txt")
-        source_files = [f for f in task_modified if any(f.endswith(ext) for ext in valid_exts)]
-        source_files = [f for f in source_files if not f.endswith("EVIDENCE_REPORT.json") and not f.endswith("EVIDENCE_REPORT.md")]
+        is_conversational = report.get("is_conversational", False)
+        status = report.get("status")
 
-        if source_files:
-            for mod_f in source_files:
-                mod_path = self.repo_path / mod_f
-                if mod_path.is_file():
-                    print("\n\033[1;32m" + "=" * 70)
-                    print(f"✨ OUTPUT ({mod_f}):")
-                    print("=" * 70 + "\033[0m")
-                    print(mod_path.read_text(encoding="utf-8", errors="replace"))
-                    print("\033[1;32m" + "=" * 70 + "\033[0m\n")
+        if status == "PROVIDER_ERROR":
+            print("\n\033[1;31m" + "=" * 70)
+            print("❌ LLM PROVIDER ERROR:")
+            print("=" * 70 + "\033[0m")
+            print(report.get("last_thought", "Provider Error"))
+            print("\033[1;31m" + "=" * 70 + "\033[0m\n")
+            return
+
+        if is_conversational or not report.get("verification", {}).get("files_modified"):
+            # Conversational Response - Render response text directly!
+            response_text = report.get("last_thought") or report.get("response_text", "")
+            print("\n\033[1;36mCodePilot:\033[0m")
+            print(response_text)
+            print()
         else:
+            # Coding / Agent Mode Task Execution
+            if self.verbose:
+                print("\n" + "=" * 70)
+                print("📊 AGENT TASK RESULT SUMMARY")
+                print("=" * 70)
+                status_colored = f"\033[1;32m{report['status']}\033[0m" if report["status"] == "VERIFIED_SUCCESS" else f"\033[1;31m{report['status']}\033[0m"
+                print(f" • Status           : {status_colored}")
+                metrics = report["telemetry"]
+                print(f" • Runtime          : {metrics['runtime_seconds']}s")
+                print(f" • Model Calls      : {metrics['model_calls']}")
+                print(f" • Tool Invocations : {metrics['tool_calls']}")
+                print(f" • Retries / Fixes  : {metrics['retry_count']}")
+                print(f" • Modified Files   : {', '.join(report['verification']['files_modified']) or 'None'}")
+                print("=" * 70 + "\n")
+
             thought_text = report.get("last_thought", "")
-            if thought_text:
-                print("\n\033[1;32m" + "=" * 70)
-                print("✨ OUTPUT:")
-                print("=" * 70 + "\033[0m")
-                print(thought_text)
-                print("\033[1;32m" + "=" * 70 + "\033[0m\n")
+            print("\n\033[1;36mCodePilot:\033[0m")
+            print(thought_text)
+            print()

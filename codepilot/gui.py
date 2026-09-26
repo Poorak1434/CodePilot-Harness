@@ -212,6 +212,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     <script>
         let currentFilePath = 'codepilot/llm/adapter.py';
+        let guiHistory = [];
 
         window.onload = function() {
             openFile(currentFilePath);
@@ -250,7 +251,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 document.getElementById('codeEditor').value = code;
 
                 // Update line numbers
-                const lines = code.split('\\n').length;
+                const lines = code.split('\n').length;
                 let numHtml = '';
                 for (let i = 1; i <= Math.max(lines, 20); i++) {
                     numHtml += i + '<br>';
@@ -268,37 +269,52 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const provider = document.getElementById('providerSelect').value;
             const apiKey = document.getElementById('apiKeyInput').value.trim();
 
-            appendChatCard(`▶ TASK: ${task}`, 'user-prompt-card');
-            appendTermLine(`▶ EXECUTING TASK: ${task}`, 'term-cmd');
+            appendChatCard(`▶ USER: ${task}`, 'user-prompt-card');
+            appendTermLine(`▶ MESSAGE: ${task}`, 'term-cmd');
             document.getElementById('agentInput').value = '';
 
             try {
                 const res = await fetch('/api/task', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ issue: task, provider: provider, apiKey: apiKey })
+                    body: JSON.stringify({ issue: task, provider: provider, apiKey: apiKey, history: guiHistory })
                 });
 
                 const data = await res.json();
 
-                if (data.status === 'VERIFIED_SUCCESS' || data.status === 'SUCCESS') {
-                    appendTermLine(`✅ TASK VERIFIED SUCCESSFULLY (${data.telemetry.runtime_seconds}s)`, 'term-success');
-                } else {
-                    appendTermLine(`⚠️ TASK COMPLETED: ${data.status}`, 'term-line');
-                }
-
-                document.getElementById('runtimeBadge').innerText = data.telemetry.runtime_seconds + 's';
-
-                // Render reasoning in Agent Chat Sidebar
+                // Append to frontend conversation memory
+                guiHistory.push({ role: 'user', content: task });
                 if (data.last_thought) {
-                    appendChatCard(`✨ AI REASONING OUTPUT:\\n${data.last_thought}`, 'agent-thought-card');
+                    guiHistory.push({ role: 'assistant', content: data.last_thought });
                 }
 
-                // Render generated code in Agent Chat Sidebar & load into editor!
+                if (data.status === 'PROVIDER_ERROR') {
+                    appendTermLine(`❌ LLM PROVIDER ERROR: ${data.last_thought}`, 'term-line');
+                    appendChatCard(`❌ PROVIDER ERROR:\n\n${data.last_thought}`, 'agent-thought-card');
+                    return;
+                }
+
+                if (data.status === 'VERIFIED_SUCCESS' || data.status === 'SUCCESS') {
+                    appendTermLine(`✅ COMPLETED (${data.telemetry ? (data.telemetry.runtime_seconds || 0) : 0}s)`, 'term-success');
+                } else {
+                    appendTermLine(`⚠️ TASK STATUS: ${data.status}`, 'term-line');
+                }
+
+                if (data.telemetry && data.telemetry.runtime_seconds) {
+                    document.getElementById('runtimeBadge').innerText = data.telemetry.runtime_seconds + 's';
+                }
+
+                // Render reasoning or direct conversational response
+                if (data.last_thought) {
+                    const headerLabel = data.is_conversational ? "✨ CODEPILOT RESPONSE:" : "✨ AI REASONING & WORKFLOW:";
+                    appendChatCard(`${headerLabel}\n\n${data.last_thought}`, 'agent-thought-card');
+                }
+
+                // Render output code if modified file present
                 if (data.output_code) {
-                    appendChatCard(`✨ GENERATED CODE OUTPUT (${data.output_file || 'Solution'}):\\n\\n${data.output_code}`, 'code-output-card');
+                    appendChatCard(`✨ MODIFIED CODE OUTPUT (${data.output_file}):\n\n${data.output_code}`, 'code-output-card');
                     document.getElementById('codeEditor').value = data.output_code;
-                    document.getElementById('currentTab').innerText = '📄 ' + (data.output_file || 'solution.py');
+                    document.getElementById('currentTab').innerText = '📄 ' + data.output_file.split('/').pop();
                 }
 
             } catch (e) {
@@ -404,20 +420,13 @@ class CodePilotGUIHandler(BaseHTTPRequestHandler):
             provider = payload.get("provider", "gemini")
             api_key = payload.get("apiKey")
             repo = payload.get("repo", self.repo_path)
+            history = payload.get("history", [])
 
-            if api_key:
+            if api_key and api_key != "{{GROQ_API_KEY}}":
                 os.environ[f"{provider.upper()}_API_KEY"] = api_key
+                os.environ["CODEPILOT_API_KEY"] = api_key
 
             repo_path = Path(repo).resolve()
-
-            # Clean up stale scratch files before run
-            for ks in ("solution.c", "solution.cpp", "solution.py", "solution.js", "solution", "sandbox_snippet.py", "add_numbers.py", "multiply_numbers.py"):
-                sp = repo_path / ks
-                if sp.exists():
-                    try:
-                        sp.unlink()
-                    except Exception:
-                        pass
 
             agent_loop = AutonomousAgentLoop(
                 workspace_root=str(repo_path),
@@ -426,9 +435,8 @@ class CodePilotGUIHandler(BaseHTTPRequestHandler):
                 verbose=False
             )
 
-            report = agent_loop.run(task_description=issue)
+            report = agent_loop.run(task_description=issue, history=history)
 
-            # Determine file output for GUI
             task_mod = report.get("telemetry", {}).get("files_modified", [])
             valid_exts = (".py", ".cpp", ".c", ".h", ".hpp", ".js", ".ts", ".java", ".json", ".md")
             src_files = [f for f in task_mod if any(f.endswith(ext) for ext in valid_exts)]
@@ -448,6 +456,7 @@ class CodePilotGUIHandler(BaseHTTPRequestHandler):
                 "telemetry": report.get("telemetry", {}),
                 "verification": report.get("verification", {}),
                 "last_thought": report.get("last_thought", ""),
+                "is_conversational": report.get("is_conversational", False),
                 "output_file": output_file,
                 "output_code": output_code
             })
