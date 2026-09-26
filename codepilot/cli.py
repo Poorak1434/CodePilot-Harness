@@ -32,9 +32,14 @@ def main():
         prog="codepilot",
         description="CodePilot - Autonomous Coding-Agent Harness for Foundation Models"
     )
-    parser.add_argument("--version", action="version", version=f"CodePilot v{__version__}")
+    parser.add_argument("--gui", action="store_true", help="Launch CodePilot Web Studio GUI Interface.")
 
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
+
+    # `gui` subcommand
+    gui_parser = subparsers.add_parser("gui", help="Launch interactive Web Studio GUI dashboard.")
+    gui_parser.add_argument("--repo", type=str, default=".", help="Target repository directory path.")
+    gui_parser.add_argument("--port", type=int, default=8080, help="Web server port.")
 
     # `chat` / interactive subcommand
     chat_parser = subparsers.add_parser("chat", help="Start continuous interactive chat / REPL mode.")
@@ -58,6 +63,13 @@ def main():
     verify_parser.add_argument("--test-cmd", type=str, default=None, help="Custom test command.")
 
     args = parser.parse_args()
+
+    if getattr(args, "gui", False) or args.command == "gui":
+        from codepilot.gui import start_gui_server
+        repo_arg = getattr(args, "repo", ".")
+        port_arg = getattr(args, "port", 8080)
+        start_gui_server(repo_path=repo_arg, port=port_arg)
+        sys.exit(0)
 
     # Default to interactive chat shell if no command provided
     if not args.command or args.command == "chat":

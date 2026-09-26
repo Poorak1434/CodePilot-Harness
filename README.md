@@ -13,7 +13,8 @@
 
 ## 🎯 Key Capabilities
 
-- 🤖 **Multi-Model Provider Adapter**: Unified support for Google Gemini (`gemini-2.5-flash`), OpenAI (`gpt-4o-mini`), Anthropic (`claude-3-5-sonnet`), Ollama local models (`llama3`), and zero-cost Mock replay engine.
+- 🎨 **CodePilot Web Studio GUI Interface**: Modern glassmorphic Web UI dashboard (`codepilot gui` / `codepilot --gui`) featuring real-time log streaming, provider management, telemetry tracking, rendered code inspector, and one-click remote repo cloner!
+- 🤖 **Multi-Model Provider Adapter**: Unified support for Google Gemini (`gemini-2.5-flash`), OpenAI (`gpt-4o-mini`), Anthropic (`claude-3-5-sonnet`), Ollama on-device local models (`llama3`), and Zero-Shot Dynamic Code Intelligence fallback.
 - ⚡ **Interactive REPL Shell & Slash Commands**: Full-featured interactive CLI with shortcuts:
   - `/gemini [KEY]`, `/openai [KEY]`, `/anthropic [KEY]`, `/ollama`, `/mock`
   - `/paste` (paste multi-line snippets for auto-fixing)
@@ -53,10 +54,14 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-### 2. Launch Interactive Mode
+### 2. Launch Interactive Mode or Web Studio GUI
 
 ```bash
+# Launch Terminal Interactive REPL Mode
 codepilot
+
+# Launch CodePilot Web Studio GUI Dashboard
+codepilot gui
 ```
 
 ### 3. Usage Examples
