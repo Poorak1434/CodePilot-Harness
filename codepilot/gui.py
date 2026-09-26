@@ -93,17 +93,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .term-success { color: var(--accent-green); }
 
         /* Right Column: Antigravity Agent Chat Sidebar */
-        .agent-sidebar { background: var(--bg-chat); display: flex; flex-direction: column; position: relative; }
-        .agent-header { padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-weight: 600; font-size: 0.88rem; color: #ffffff; display: flex; justify-content: space-between; align-items: center; }
+        .agent-sidebar { background: var(--bg-chat); display: flex; flex-direction: column; position: relative; overflow: hidden; min-height: 0; height: 100%; }
+        .agent-header { padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-weight: 600; font-size: 0.88rem; color: #ffffff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
 
-        .chat-trajectory { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+        .chat-trajectory { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
         .chat-card { background: #252526; border: 1px solid #3c3c3c; border-radius: 8px; padding: 12px 14px; font-size: 0.84rem; line-height: 1.6; }
         .user-prompt-card { background: rgba(0, 122, 204, 0.15); border-color: rgba(0, 122, 204, 0.4); color: #ffffff; font-weight: 500; }
         .agent-thought-card { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); color: #fbbf24; }
         .code-output-card { background: #1e1e1e; border-color: #333333; font-family: 'Fira Code', monospace; font-size: 0.8rem; overflow-x: auto; color: #e5e7eb; }
 
-        /* Floating Input Bar at Bottom Right */
-        .agent-input-container { padding: 14px 16px; border-top: 1px solid var(--border-color); background: #181818; display: flex; flex-direction: column; gap: 10px; }
+        /* Permanent Bottom Input Bar */
+        .agent-input-container { padding: 14px 16px; border-top: 1px solid var(--border-color); background: #181818; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; margin-top: auto; z-index: 10; }
         .input-row { display: flex; background: #252526; border: 1px solid #3c3c3c; border-radius: 8px; padding: 8px 12px; align-items: center; gap: 8px; }
         .agent-input-box { flex: 1; background: transparent; border: none; outline: none; color: #ffffff; font-size: 0.85rem; }
         
