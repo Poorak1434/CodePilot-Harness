@@ -90,8 +90,14 @@ class InteractiveShell:
         elif cmd == "/help":
             print("\nAvailable Commands:")
             print("  /paste            - Paste multi-line text or code snippet")
+            print("  /audit            - 🛡️ Run Security Auditor on workspace")
+            print("  /quality          - 🧹 Run Code Quality & Duplication Agent")
+            print("  /arch             - 🏛️ Generate Architecture Documentation & Mermaid Diagrams")
+            print("  /demo             - 🎬 Generate Demo Video (storyboard, narration, MP4)")
+            print("  /workflow         - ⚡ Run full parallel Multi-Agent Pipeline")
+            print("  /agents           - List all registered specialized domain agents")
             print("  /repo <path>      - Set active repository directory")
-            print("  /provider <name>  - Set model provider (groq, gemini, openai, anthropic, ollama, mock)")
+            print("  /provider <name>  - Set model provider (ollama, groq, gemini, openai, anthropic, mock)")
             print("  /key <api_key>    - Set API Key for current model provider")
             print("  /test-cmd <cmd>   - Set custom test command (e.g. pytest)")
             print("  /verify           - Run independent verification checks on repo")
@@ -99,6 +105,29 @@ class InteractiveShell:
             print("  /status           - Show repository git status")
             print("  /clear            - Clear terminal screen and history")
             print("  /exit             - Exit interactive shell\n")
+
+        elif cmd == "/agents":
+            loop = AutonomousAgentLoop(workspace_root=str(self.repo_path), provider=self.provider)
+            agents = loop.orchestrator.list_agents()
+            print("\nRegistered Specialized Agents:")
+            for a in agents:
+                print(f" • \033[1;36m{a['agent_id']}\033[0m ({a['role']}): {a['description']}")
+            print()
+
+        elif cmd == "/audit":
+            self._run_task("Audit this repository for security vulnerabilities and produce a detailed audit report.")
+
+        elif cmd == "/quality":
+            self._run_task("Scan this repository for code duplication, dead code, and maintainability refactoring opportunities.")
+
+        elif cmd == "/arch":
+            self._run_task("Inspect the complete repository structure and generate technical architecture documentation and Mermaid diagrams.")
+
+        elif cmd == "/demo":
+            self._run_task("Generate a complete project showcase demo video for hackathon judges.")
+
+        elif cmd == "/workflow":
+            self._run_task("Execute full multi-agent workflow: audit security, check code quality, generate architecture documentation, and compile demo video.")
 
         elif cmd in ("/paste", "/code"):
             code_text = self._read_multiline_block()
@@ -247,4 +276,11 @@ class InteractiveShell:
             thought_text = report.get("last_thought", "")
             print("\n\033[1;36mCodePilot:\033[0m")
             print(thought_text)
+            print()
+
+        artifacts = report.get("artifacts", {})
+        if artifacts:
+            print("\033[1;32m📦 Generated Artifacts:\033[0m")
+            for name, path_str in sorted(artifacts.items()):
+                print(f" • \033[1;33m{name}\033[0m -> {path_str}")
             print()

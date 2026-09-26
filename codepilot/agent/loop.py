@@ -3,6 +3,7 @@ Autonomous Agent Loop executing the unified LLM-first agent architecture.
 Supports both Conversational Mode and Agent / Coding Mode naturally driven by model intelligence.
 """
 from typing import Dict, Any, Optional, List
+from pathlib import Path
 from codepilot.agent.state import TaskState, AgentPhase
 from codepilot.agent.planner import Planner
 from codepilot.agent.orchestrator import AgentOrchestrator
@@ -188,6 +189,16 @@ class AutonomousAgentLoop:
 
         report["last_thought"] = thought
         report["is_conversational"] = False
+
+        # Collect generated artifacts if any
+        artifacts_dir = Path(orch.safety.workspace_root) / "artifacts"
+        artifacts_map = {}
+        if artifacts_dir.exists():
+            for p in artifacts_dir.rglob("*"):
+                if p.is_file() and not p.name.startswith("."):
+                    rel = str(p.relative_to(orch.safety.workspace_root))
+                    artifacts_map[p.name] = rel
+        report["artifacts"] = artifacts_map
 
         if has_executed_tools or last_verification.files_modified:
             EvidenceReporter.save_report(report, output_directory=str(orch.safety.workspace_root))

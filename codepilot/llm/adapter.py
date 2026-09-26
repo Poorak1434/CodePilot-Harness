@@ -47,12 +47,12 @@ class LLMAdapter:
             "openai": "gpt-4o-mini",
             "anthropic": "claude-3-5-sonnet-20241022",
             "groq": "llama-3.3-70b-versatile",
-            "ollama": "llama3.2:3b",
-            "on_device": "slm-3b-local",
-            "slm": "slm-3b-local",
+            "ollama": "qwen2.5-coder:1.5b",
+            "on_device": "qwen2.5-coder:1.5b",
+            "slm": "qwen2.5-coder:1.5b",
             "mock": "mock-llm-v1"
         }
-        return defaults.get(provider.lower(), "slm-3b-local")
+        return defaults.get(provider.lower(), "qwen2.5-coder:1.5b")
 
     def set_mock_script(self, script: List[Dict[str, Any]]) -> None:
         """Configures replay sequence for deterministic mock provider during automated testing."""
@@ -99,35 +99,45 @@ class LLMAdapter:
 
     def _call_on_device_slm(self, system_prompt: str, user_context: str, history: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
-        Executes 100% locally on-device using local SLM model engine.
-        Does not require external API keys or cloud server connections.
+        Executes locally on-device using local Ollama SLM model.
+        Reports clear error if Ollama server or model is not installed.
         """
+        url = "http://localhost:11434/api/chat"
+        messages = [{"role": "system", "content": system_prompt}]
+        for h in history[-10:]:
+            messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
+        messages.append({"role": "user", "content": user_context})
+
+        model_to_use = self.model_name if self.model_name and self.model_name != "slm-3b-local" else "qwen2.5-coder:1.5b"
+
+        payload = json.dumps({
+            "model": model_to_use,
+            "messages": messages,
+            "stream": False,
+            "format": "json"
+        }).encode("utf-8")
+
         try:
-            import urllib.request
-            url = "http://localhost:11434/api/chat"
-            messages = [{"role": "system", "content": system_prompt}]
-            for h in history[-10:]:
-                messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
-            messages.append({"role": "user", "content": user_context})
-
-            payload = json.dumps({
-                "model": self.model_name or "llama3.2:3b",
-                "messages": messages,
-                "stream": False,
-                "format": "json"
-            }).encode("utf-8")
-
             req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=5) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 text = data.get("message", {}).get("content", "")
                 return self._parse_json(text)
-        except Exception:
-            pass
-
-        from codepilot.llm.slm_engine import OnDeviceSLMEngine
-        slm = OnDeviceSLMEngine()
-        return slm.generate(user_context, history=history)
+        except Exception as e:
+            return {
+                "_api_error": True,
+                "thought": (
+                    f"Ollama Local SLM Error: {str(e)}.\n\n"
+                    "Ollama service or local SLM model is not running at http://localhost:11434.\n"
+                    "To use local on-device SLM:\n"
+                    " 1. Install Ollama: brew install ollama\n"
+                    " 2. Pull model: ollama pull qwen2.5-coder:7b\n"
+                    " 3. Start service: ollama serve\n\n"
+                    "Alternatively, set a cloud provider API key (e.g. /key <api_key> for Groq, Gemini, OpenAI, or Anthropic)."
+                ),
+                "plan": [],
+                "tool_call": None
+            }
 
     def _call_mock(self, user_context: str = "") -> Dict[str, Any]:
         """Deterministic mock provider for automated unit tests."""
@@ -317,7 +327,7 @@ class LLMAdapter:
             messages.append({"role": "user", "content": user_context})
 
             payload = json.dumps({
-                "model": self.model_name or "llama3",
+                "model": self.model_name or "qwen2.5-coder:1.5b",
                 "messages": messages,
                 "stream": False,
                 "format": "json"
@@ -343,19 +353,34 @@ class LLMAdapter:
         elif "```" in cleaned:
             cleaned = cleaned.split("```")[1].split("```")[0].strip()
 
+        data: Optional[Dict[str, Any]] = None
         try:
-            data = json.loads(cleaned)
-            if isinstance(data, dict):
-                return data
+            parsed = json.loads(cleaned)
+            if isinstance(parsed, dict):
+                data = parsed
         except json.JSONDecodeError:
             match = re.search(r"\{.*\}", cleaned, re.DOTALL)
             if match:
                 try:
-                    data = json.loads(match.group(0))
-                    if isinstance(data, dict):
-                        return data
+                    parsed = json.loads(match.group(0))
+                    if isinstance(parsed, dict):
+                        data = parsed
                 except Exception:
                     pass
+
+        if data is not None:
+            if "thought" not in data:
+                # Find best thought string from response
+                for k in ("response", "answer", "explanation", "message", "text", "description", "summary"):
+                    if k in data and isinstance(data[k], str) and data[k].strip():
+                        data["thought"] = data[k]
+                        break
+                if "thought" not in data:
+                    str_vals = [f"{k}: {v}" if not isinstance(v, str) else v for k, v in data.items() if k not in ("tool_call", "plan")]
+                    data["thought"] = "\n".join(str(s) for s in str_vals) if str_vals else json.dumps(data, indent=2)
+            if "tool_call" not in data:
+                data["tool_call"] = {"name": "done", "arguments": {"reason": "Completed"}}
+            return data
 
         # Wrap plain text responses into thought cleanly
         return {

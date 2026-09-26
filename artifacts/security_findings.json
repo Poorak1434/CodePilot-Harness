@@ -1,0 +1,87 @@
+{
+  "agent_id": "security_auditor",
+  "scan_timestamp": "2026-09-26 17:13:57 UTC",
+  "files_scanned": 57,
+  "findings_count": 7,
+  "findings": [
+    {
+      "finding_id": "SEC-001",
+      "affected_file": "tests/test_multi_agent.py",
+      "line_number": 68,
+      "vulnerability": "Insecure Shell Execution (subprocess shell=True)",
+      "severity": "HIGH",
+      "rationale": "Using shell=True allows command injection if untrusted inputs reach the command line.",
+      "evidence": "\"    return subprocess.Popen(cmd, shell=True)\\n\"",
+      "suggested_remediation": "Pass arguments as an argument list with shell=False, or sanitize inputs with shlex.split().",
+      "verification_status": "VERIFIED"
+    },
+    {
+      "finding_id": "SEC-002",
+      "affected_file": "tests/test_multi_agent.py",
+      "line_number": 70,
+      "vulnerability": "Arbitrary Code Execution via eval/exec",
+      "severity": "CRITICAL",
+      "rationale": "Evaluating dynamic strings executes arbitrary code within the current process context.",
+      "evidence": "\"    return eval(code)\\n\",",
+      "suggested_remediation": "Refactor to use ast.literal_eval() for data or safe dispatch maps.",
+      "verification_status": "VERIFIED"
+    },
+    {
+      "finding_id": "SEC-003",
+      "affected_file": "codepilot/tools/terminal.py",
+      "line_number": 41,
+      "vulnerability": "Insecure Shell Execution (subprocess shell=True)",
+      "severity": "HIGH",
+      "rationale": "Using shell=True allows command injection if untrusted inputs reach the command line.",
+      "evidence": "shell=True,",
+      "suggested_remediation": "Pass arguments as an argument list with shell=False, or sanitize inputs with shlex.split().",
+      "verification_status": "VERIFIED"
+    },
+    {
+      "finding_id": "SEC-004",
+      "affected_file": "codepilot/agent/security_agent.py",
+      "line_number": 173,
+      "vulnerability": "Insecure Shell Execution (subprocess shell=True)",
+      "severity": "HIGH",
+      "rationale": "Using shell=True allows command injection if untrusted inputs reach the command line.",
+      "evidence": "if \"shell=True\" in line and \"subprocess\" in content:",
+      "suggested_remediation": "Pass arguments as an argument list with shell=False, or sanitize inputs with shlex.split().",
+      "verification_status": "VERIFIED"
+    },
+    {
+      "finding_id": "SEC-005",
+      "affected_file": "codepilot/agent/security_agent.py",
+      "line_number": 178,
+      "vulnerability": "Insecure Shell Execution (subprocess shell=True)",
+      "severity": "HIGH",
+      "rationale": "Using shell=True allows command injection if untrusted inputs reach the command line.",
+      "evidence": "\"vulnerability\": \"Insecure Shell Execution (subprocess shell=True)\",",
+      "suggested_remediation": "Pass arguments as an argument list with shell=False, or sanitize inputs with shlex.split().",
+      "verification_status": "VERIFIED"
+    },
+    {
+      "finding_id": "SEC-006",
+      "affected_file": "codepilot/agent/security_agent.py",
+      "line_number": 180,
+      "vulnerability": "Insecure Shell Execution (subprocess shell=True)",
+      "severity": "HIGH",
+      "rationale": "Using shell=True allows command injection if untrusted inputs reach the command line.",
+      "evidence": "\"rationale\": \"Using shell=True allows command injection if untrusted inputs reach the command line.\",",
+      "suggested_remediation": "Pass arguments as an argument list with shell=False, or sanitize inputs with shlex.split().",
+      "verification_status": "VERIFIED"
+    },
+    {
+      "finding_id": "SEC-007",
+      "affected_file": "codepilot/agent/security_agent.py",
+      "line_number": 197,
+      "vulnerability": "Insecure Deserialization via pickle",
+      "severity": "HIGH",
+      "rationale": "Deserializing untrusted pickle streams can lead to arbitrary remote code execution.",
+      "evidence": "elif \"pickle.loads\" in line:",
+      "suggested_remediation": "Use safe serialization formats such as JSON or Protocol Buffers.",
+      "verification_status": "VERIFIED"
+    }
+  ],
+  "llm_assessment": "Ollama Local LLM Error: HTTP Error 500: Internal Server Error",
+  "security_disclaimer": "No automated scan can guarantee complete security. Absence of findings does not imply the codebase is invulnerable."
+}

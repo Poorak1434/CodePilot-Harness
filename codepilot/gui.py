@@ -111,6 +111,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .provider-select-mini { background: #252526; border: 1px solid #3c3c3c; color: #cccccc; border-radius: 6px; padding: 6px 8px; font-size: 0.75rem; outline: none; }
         .key-input-mini { background: #252526; border: 1px solid #3c3c3c; color: #ffffff; border-radius: 6px; padding: 4px 8px; font-size: 0.75rem; width: 130px; outline: none; }
         .btn-send { background: var(--accent-blue); border: none; border-radius: 6px; color: #fff; font-weight: 700; padding: 6px 14px; font-size: 0.8rem; cursor: pointer; }
+
+        .agent-quick-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px; background: #1c1c1c; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
+        .btn-agent-action { background: #2a2a2b; border: 1px solid #3c3c3c; border-radius: 6px; color: #e2e8f0; font-size: 0.72rem; font-weight: 500; padding: 4px 8px; cursor: pointer; transition: all 0.2s; }
+        .btn-agent-action:hover { background: #38383a; border-color: var(--accent-cyan); color: #ffffff; }
     </style>
 </head>
 <body>
@@ -118,7 +122,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="window-header">
         <div>📁 Explorer</div>
         <div class="window-title" id="activeWindowTitle">AI Harness Hackathon — CodePilot Studio</div>
-        <div class="status-pill">● Engine Ready</div>
+        <div class="status-pill">● Multi-Agent Ready</div>
     </div>
 
     <!-- Main IDE Layout -->
@@ -177,14 +181,23 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <!-- Right Panel: Antigravity Agent Chat Sidebar -->
         <div class="agent-sidebar">
             <div class="agent-header">
-                <span>Autonomous Coding Agent Harness</span>
+                <span>Multi-Agent Swarm Orchestrator</span>
                 <span style="font-size: 0.75rem; color: var(--accent-cyan);" id="runtimeBadge">0.0s</span>
+            </div>
+
+            <div class="agent-quick-actions">
+                <button class="btn-agent-action" onclick="runAgentPrompt('Audit this repository for security vulnerabilities and produce a detailed audit report.')">🛡️ Security</button>
+                <button class="btn-agent-action" onclick="runAgentPrompt('Scan this repository for code duplication, dead code, and maintainability refactoring opportunities.')">🧹 Quality</button>
+                <button class="btn-agent-action" onclick="runAgentPrompt('Inspect the complete repository structure and generate technical architecture documentation and Mermaid diagrams.')">🏛️ Architecture</button>
+                <button class="btn-agent-action" onclick="runAgentPrompt('Generate a complete project showcase demo video for hackathon judges.')">🎬 Demo Video</button>
+                <button class="btn-agent-action" onclick="runAgentPrompt('Execute full multi-agent workflow: audit security, check code quality, generate architecture documentation, and compile demo video.')">⚡ Workflow</button>
             </div>
 
             <div class="chat-trajectory" id="chatTrajectory">
                 <div class="chat-card agent-thought-card">
-                    ✨ CodePilot Autonomous Agent Engine Initialized.<br>
-                    Enter any coding task in English, Hindi, or Hinglish below!
+                    ✨ CodePilot Multi-Agent Orchestrator Ready.<br>
+                    Specialized Agents: Security Auditor, Code Quality Agent, Architecture Agent, and Demo Video Agent.<br>
+                    Enter any request below or click a quick action above!
                 </div>
             </div>
 
@@ -196,13 +209,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
                 <div class="agent-controls-row">
                     <select id="providerSelect" class="provider-select-mini">
-                        <option value="on_device" selected>On-Device Local SLM Model (Zero Cloud Keys)</option>
+                        <option value="ollama" selected>Ollama On-Device SLM (qwen2.5-coder:1.5b)</option>
                         <option value="groq">Groq Llama 3.3 70B (Cloud)</option>
                         <option value="gemini">Gemini 2.0 Flash (Cloud)</option>
                         <option value="openai">OpenAI GPT-4o-mini (Cloud)</option>
                         <option value="anthropic">Claude 3.5 Sonnet (Cloud)</option>
-                        <option value="ollama">Ollama Local LLM Endpoint</option>
-                        <option value="mock">Zero-Shot Test Mode</option>
+                        <option value="mock">Deterministic Test Mode</option>
                     </select>
 
                     <input type="text" id="apiKeyInput" class="key-input-mini" value="{{GROQ_API_KEY}}" placeholder="API Key...">
@@ -318,9 +330,23 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     document.getElementById('currentTab').innerText = '📄 ' + data.output_file.split('/').pop();
                 }
 
+                // Render generated artifacts
+                if (data.artifacts && Object.keys(data.artifacts).length > 0) {
+                    let artText = "📦 GENERATED ARTIFACTS:\n";
+                    for (const [k, v] of Object.entries(data.artifacts)) {
+                        artText += ` • ${k}: ${v}\n`;
+                    }
+                    appendChatCard(artText, 'code-output-card');
+                }
+
             } catch (e) {
                 appendTermLine(`❌ Task Error: ${e.message}`, 'term-line');
             }
+        }
+
+        function runAgentPrompt(promptText) {
+            document.getElementById('agentInput').value = promptText;
+            executeAgentTask();
         }
 
         async function cloneRemoteRepo() {
@@ -459,7 +485,8 @@ class CodePilotGUIHandler(BaseHTTPRequestHandler):
                 "last_thought": report.get("last_thought", ""),
                 "is_conversational": report.get("is_conversational", False),
                 "output_file": output_file,
-                "output_code": output_code
+                "output_code": output_code,
+                "artifacts": report.get("artifacts", {})
             })
 
         elif parsed.path == "/api/clone":

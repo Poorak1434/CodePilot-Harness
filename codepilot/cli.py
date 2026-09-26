@@ -25,12 +25,12 @@ def load_env_file():
 def main():
     load_env_file()
     
-    # Determine default provider (default to Cloud Server API gemini)
-    default_p = os.getenv("DEFAULT_PROVIDER") or "gemini"
+    # Determine default provider
+    default_p = os.getenv("DEFAULT_PROVIDER") or os.getenv("CODEPILOT_PROVIDER") or "ollama"
 
     parser = argparse.ArgumentParser(
         prog="codepilot",
-        description="CodePilot - Autonomous Coding-Agent Harness for Foundation Models"
+        description=f"CodePilot v{__version__} - Autonomous Multi-Agent Software Engineering Harness"
     )
     parser.add_argument("--gui", action="store_true", help="Launch CodePilot Web Studio GUI Interface.")
 
@@ -44,14 +44,51 @@ def main():
     # `chat` / interactive subcommand
     chat_parser = subparsers.add_parser("chat", help="Start continuous interactive chat / REPL mode.")
     chat_parser.add_argument("--repo", type=str, default=".", help="Target repository directory path.")
-    chat_parser.add_argument("--provider", type=str, default=default_p, choices=["groq", "gemini", "openai", "anthropic", "ollama", "mock"], help="LLM Provider.")
+    chat_parser.add_argument("--provider", type=str, default=default_p, choices=["ollama", "groq", "gemini", "openai", "anthropic", "mock"], help="LLM Provider.")
     chat_parser.add_argument("--model", type=str, default=None, help="Specific model name.")
+
+    # `run` subcommand
+    run_parser = subparsers.add_parser("run", help="Run a natural language prompt directly.")
+    run_parser.add_argument("prompt", type=str, help="Prompt or task instruction.")
+    run_parser.add_argument("--repo", type=str, default=".", help="Target repository directory path.")
+    run_parser.add_argument("--provider", type=str, default=default_p, choices=["ollama", "groq", "gemini", "openai", "anthropic", "mock"], help="LLM Provider.")
+    run_parser.add_argument("--model", type=str, default=None, help="Specific model name.")
+
+    # `audit` subcommand
+    audit_parser = subparsers.add_parser("audit", help="Run Security Auditor on the repository.")
+    audit_parser.add_argument("--repo", type=str, default=".", help="Target repository directory path.")
+    audit_parser.add_argument("--provider", type=str, default=default_p, help="LLM Provider.")
+    audit_parser.add_argument("--model", type=str, default=None, help="Specific model name.")
+
+    # `quality` subcommand
+    quality_parser = subparsers.add_parser("quality", help="Run Code Quality and Duplication Agent.")
+    quality_parser.add_argument("--repo", type=str, default=".", help="Target repository directory path.")
+    quality_parser.add_argument("--provider", type=str, default=default_p, help="LLM Provider.")
+    quality_parser.add_argument("--model", type=str, default=None, help="Specific model name.")
+
+    # `architecture` subcommand
+    arch_parser = subparsers.add_parser("architecture", help="Generate technical architecture and Mermaid diagrams.")
+    arch_parser.add_argument("--repo", type=str, default=".", help="Target repository directory path.")
+    arch_parser.add_argument("--provider", type=str, default=default_p, help="LLM Provider.")
+    arch_parser.add_argument("--model", type=str, default=None, help="Specific model name.")
+
+    # `demo` subcommand
+    demo_parser = subparsers.add_parser("demo", help="Generate project showcase storyboard, narration, and playable MP4 video.")
+    demo_parser.add_argument("--repo", type=str, default=".", help="Target repository directory path.")
+    demo_parser.add_argument("--provider", type=str, default=default_p, help="LLM Provider.")
+    demo_parser.add_argument("--model", type=str, default=None, help="Specific model name.")
+
+    # `workflow` subcommand
+    workflow_parser = subparsers.add_parser("workflow", help="Run full multi-agent pipeline (Security + Quality + Architecture + Demo Video).")
+    workflow_parser.add_argument("--repo", type=str, default=".", help="Target repository directory path.")
+    workflow_parser.add_argument("--provider", type=str, default=default_p, help="LLM Provider.")
+    workflow_parser.add_argument("--model", type=str, default=None, help="Specific model name.")
 
     # `fix` subcommand
     fix_parser = subparsers.add_parser("fix", help="Execute autonomous coding loop for a single task.")
     fix_parser.add_argument("--repo", type=str, default=".", help="Target repository directory path.")
     fix_parser.add_argument("--issue", type=str, required=True, help="Task or issue description.")
-    fix_parser.add_argument("--provider", type=str, default=default_p, choices=["groq", "gemini", "openai", "anthropic", "ollama", "mock"], help="LLM Provider.")
+    fix_parser.add_argument("--provider", type=str, default=default_p, choices=["ollama", "groq", "gemini", "openai", "anthropic", "mock"], help="LLM Provider.")
     fix_parser.add_argument("--model", type=str, default=None, help="Specific model name.")
     fix_parser.add_argument("--max-retries", type=int, default=5, help="Maximum number of retry attempts.")
     fix_parser.add_argument("--test-cmd", type=str, default=None, help="Custom test command.")
@@ -62,7 +99,18 @@ def main():
     verify_parser.add_argument("--repo", type=str, default=".", help="Target repository directory path.")
     verify_parser.add_argument("--test-cmd", type=str, default=None, help="Custom test command.")
 
+    # `doctor` subcommand
+    doctor_parser = subparsers.add_parser("doctor", help="Run diagnostic health checks on configured LLM provider.")
+    doctor_parser.add_argument("--provider", type=str, default=None, help="LLM Provider.")
+    doctor_parser.add_argument("--model", type=str, default=None, help="Specific model name.")
+
     args = parser.parse_args()
+
+    if args.command == "doctor":
+        from codepilot.llm.doctor import CodePilotDoctor
+        doc = CodePilotDoctor(provider=args.provider, model=args.model)
+        healthy = doc.print_report()
+        sys.exit(0 if healthy else 1)
 
     if getattr(args, "gui", False) or args.command == "gui":
         from codepilot.gui import start_gui_server
@@ -70,6 +118,98 @@ def main():
         port_arg = getattr(args, "port", 8080)
         start_gui_server(repo_path=repo_arg, port=port_arg)
         sys.exit(0)
+
+    # Multi-Agent Subcommands
+    if args.command in ("audit", "quality", "architecture", "demo", "workflow", "run"):
+        repo_path = Path(args.repo).resolve()
+        prompt_map = {
+            "audit": "Audit this repository for security vulnerabilities and produce a detailed audit report.",
+            "quality": "Scan this repository for code duplication, dead code, and maintainability refactoring opportunities.",
+            "architecture": "Inspect the complete repository structure and generate technical architecture documentation and Mermaid diagrams.",
+            "demo": "Generate a complete project showcase demo video for hackathon judges.",
+            "workflow": "Execute full multi-agent workflow: audit security, check code quality, generate architecture documentation, and compile demo video."
+        }
+        task_prompt = getattr(args, "prompt", None) or prompt_map[args.command]
+
+        print("=" * 70)
+        print(f"🚀 CODEPILOT MULTI-AGENT HARNESS — {args.command.upper()}")
+        print(f" • Repository : {repo_path}")
+        print(f" • Provider   : {args.provider}")
+        print(f" • Task       : {task_prompt}")
+        print("=" * 70 + "\n")
+
+        agent_loop = AutonomousAgentLoop(
+            workspace_root=str(repo_path),
+            provider=args.provider,
+            model_name=args.model,
+            verbose=True
+        )
+        orch = agent_loop.orchestrator
+
+        if args.command == "audit":
+            tool_res = orch.tools.dispatch("run_security_audit", {"objective": task_prompt})
+            print(f"\n{tool_res.output}\n")
+            artifacts = tool_res.metadata.get("artifacts", {})
+            if artifacts:
+                print("📦 Generated Artifacts:")
+                for k, v in artifacts.items():
+                    print(f" • {k} -> {v}")
+            sys.exit(0 if tool_res.success else 1)
+
+        elif args.command == "quality":
+            tool_res = orch.tools.dispatch("run_code_quality_check", {"objective": task_prompt})
+            print(f"\n{tool_res.output}\n")
+            artifacts = tool_res.metadata.get("artifacts", {})
+            if artifacts:
+                print("📦 Generated Artifacts:")
+                for k, v in artifacts.items():
+                    print(f" • {k} -> {v}")
+            sys.exit(0 if tool_res.success else 1)
+
+        elif args.command == "architecture":
+            tool_res = orch.tools.dispatch("generate_architecture_docs", {"objective": task_prompt})
+            print(f"\n{tool_res.output}\n")
+            artifacts = tool_res.metadata.get("artifacts", {})
+            if artifacts:
+                print("📦 Generated Artifacts:")
+                for k, v in artifacts.items():
+                    print(f" • {k} -> {v}")
+            sys.exit(0 if tool_res.success else 1)
+
+        elif args.command == "demo":
+            tool_res = orch.tools.dispatch("generate_demo_video", {"objective": task_prompt})
+            print(f"\n{tool_res.output}\n")
+            artifacts = tool_res.metadata.get("artifacts", {})
+            if artifacts:
+                print("📦 Generated Artifacts:")
+                for k, v in artifacts.items():
+                    print(f" • {k} -> {v}")
+            sys.exit(0 if tool_res.success else 1)
+
+        elif args.command == "workflow":
+            tool_res = orch.tools.dispatch("run_multi_agent_workflow", {"include_video": True})
+            print(f"\n{tool_res.output}\n")
+            sys.exit(0 if tool_res.success else 1)
+
+        else:
+            # `run` subcommand: conversational or LLM-driven execution
+            report = agent_loop.run(task_description=task_prompt)
+
+            print("\n" + "=" * 70)
+            print("📊 EXECUTION SUMMARY")
+            print("=" * 70)
+            print(f"Status: {report['status']}")
+            thought_out = report.get("last_thought") or report.get("response_text", "")
+            if thought_out:
+                print(f"\nResponse / Thought:\n{thought_out}\n")
+
+            artifacts = report.get("artifacts", {})
+            if artifacts:
+                print("📦 Generated Artifacts:")
+                for name, path_str in sorted(artifacts.items()):
+                    print(f" • {name} -> {path_str}")
+
+            sys.exit(0 if report["status"] in ("SUCCESS", "VERIFIED_SUCCESS") else 1)
 
     # Default to interactive chat shell if no command provided
     if not args.command or args.command == "chat":

@@ -1,0 +1,13 @@
+file '/Users/poorakpandey/Documents/Personal Projects/AI Harness Hackathon/artifacts/demo/screenshots/slide_01.png'
+duration 4.0
+file '/Users/poorakpandey/Documents/Personal Projects/AI Harness Hackathon/artifacts/demo/screenshots/slide_02.png'
+duration 4.0
+file '/Users/poorakpandey/Documents/Personal Projects/AI Harness Hackathon/artifacts/demo/screenshots/slide_03.png'
+duration 4.0
+file '/Users/poorakpandey/Documents/Personal Projects/AI Harness Hackathon/artifacts/demo/screenshots/slide_04.png'
+duration 4.0
+file '/Users/poorakpandey/Documents/Personal Projects/AI Harness Hackathon/artifacts/demo/screenshots/slide_05.png'
+duration 4.0
+file '/Users/poorakpandey/Documents/Personal Projects/AI Harness Hackathon/artifacts/demo/screenshots/slide_06.png'
+duration 4.0
+file '/Users/poorakpandey/Documents/Personal Projects/AI Harness Hackathon/artifacts/demo/screenshots/slide_06.png'

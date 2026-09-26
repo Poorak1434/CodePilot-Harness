@@ -1,5 +1,6 @@
 """
-Planner module for task decomposition and plan adjustments.
+Planner module for task decomposition and recovery adjustments.
+Driven dynamically by context and model intelligence without hardcoded routing.
 """
 from typing import List, Dict, Any
 
@@ -7,27 +8,19 @@ from typing import List, Dict, Any
 class Planner:
     @staticmethod
     def create_initial_plan(task_description: str, relevant_files: List[Dict[str, Any]]) -> List[str]:
-        task_lower = task_description.lower().strip()
-        if any(task_lower == g or task_lower.startswith(f"{g} ") for g in ("hello", "hi", "hey", "who are you", "what can you do")):
-            return ["Respond to user greeting and explain CodePilot capabilities"]
-
-        if any(kw in task_lower for kw in ("cpp", "c++", "multiples of 10", "till 700", "multiples")):
-            return ["Create solution.cpp with C++ multiples program", "Compile and verify execution with g++"]
-
-        if any(kw in task_lower for kw in ("add two numbers", "add 2 numbers", "sum of two numbers", "addition", "add numbers")):
-            return ["Create add_numbers.py with Python addition implementation", "Verify execution with python3 add_numbers.py"]
-
+        """Creates an initial execution plan template grounded in relevant workspace files."""
+        file_paths = [f["path"] for f in relevant_files] if relevant_files else []
         plan = [
-            f"Explore repository and inspect relevant files: {[f['path'] for f in relevant_files]}",
-            "Identify buggy functions or missing assertions",
-            "Apply code modifications using edit_file / create_file",
-            "Run test suite with run_tests to verify fix",
-            "Inspect git diff and submit final verified solution"
+            f"Analyze user objective: '{task_description}'",
+            f"Inspect relevant repository context: {file_paths[:4] if file_paths else 'workspace root'}",
+            "Coordinate required tools or specialized agents",
+            "Independently verify outcomes and submit verified results"
         ]
         return plan
 
     @staticmethod
     def adjust_plan_for_failure(current_plan: List[str], recovery_hint: str) -> List[str]:
+        """Adjusts current plan to insert a dynamic recovery step when a failure or error occurs."""
         new_plan = list(current_plan)
         new_plan.insert(0, f"RECOVERY STEP: {recovery_hint}")
         return new_plan[:6]
