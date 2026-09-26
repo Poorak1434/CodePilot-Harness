@@ -137,6 +137,21 @@ class InteractiveShell:
                     self.repo_path = new_path
                     print(f"\033[1;32mActive repository updated to: {self.repo_path}\033[0m")
 
+        elif cmd in ("/gemini", "/openai", "/anthropic", "/ollama", "/mock"):
+            p_name = cmd[1:]
+            self.provider = p_name
+            env_var = f"{self.provider.upper()}_API_KEY"
+            if arg:
+                os.environ[env_var] = arg
+                print(f"\033[1;32mProvider set to {self.provider.upper()} and API Key updated.\033[0m")
+            else:
+                if p_name != "mock" and not os.getenv(env_var):
+                    print(f"\033[1;33mNote: {env_var} is not set in environment.\033[0m")
+                    key_input = input(f"Enter {self.provider.upper()} API Key (or press Enter to skip): ").strip()
+                    if key_input:
+                        os.environ[env_var] = key_input
+                print(f"\033[1;32mProvider updated to: {self.provider}\033[0m")
+
         elif cmd == "/provider":
             if not arg:
                 print(f"Current provider: {self.provider}")
@@ -256,6 +271,7 @@ class InteractiveShell:
         metrics = report["telemetry"]
         print(f" • Runtime          : {metrics['runtime_seconds']}s")
         print(f" • Model Calls      : {metrics['model_calls']}")
+        print(f" • Token Usage      : {metrics.get('prompt_tokens', 0)} prompt / {metrics.get('completion_tokens', 0)} comp ({metrics.get('total_tokens', 0)} total)")
         print(f" • Tool Invocations : {metrics['tool_calls']}")
         print(f" • Retries / Fixes  : {metrics['retry_count']}")
         print(f" • Modified Files   : {', '.join(report['verification']['files_modified']) or 'None'}")

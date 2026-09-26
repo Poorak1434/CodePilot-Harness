@@ -67,11 +67,14 @@ class AutonomousAgentLoop:
 
             # Invoke LLM Adapter
             logger.log(f"Model invocation (Turn #{state.step_count}, Retry #{state.retry_count}).")
-            metrics.record_model_call()
             model_resp = orch.llm.generate_response(
                 system_prompt=SYSTEM_PROMPT,
                 user_context=user_context,
                 history=orch.context.history
+            )
+            metrics.record_model_call(
+                prompt_tok=orch.llm.last_prompt_tokens,
+                comp_tok=orch.llm.last_completion_tokens
             )
 
             thought = model_resp.get("thought", "")
