@@ -9,7 +9,7 @@ from typing import Dict, Any, Optional, List
 
 
 class LLMAdapter:
-    def __init__(self, provider: str = "mock", model_name: Optional[str] = None, api_key: Optional[str] = None):
+    def __init__(self, provider: str = "gemini", model_name: Optional[str] = None, api_key: Optional[str] = None):
         self.provider = provider.lower()
         self.model_name = model_name or self._default_model_name(self.provider)
         self.api_key = api_key or os.getenv(f"{self.provider.upper()}_API_KEY")

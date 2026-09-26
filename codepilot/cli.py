@@ -25,8 +25,8 @@ def load_env_file():
 def main():
     load_env_file()
     
-    # Determine default provider (use gemini if key present, else mock)
-    default_p = os.getenv("DEFAULT_PROVIDER") or ("gemini" if os.getenv("GEMINI_API_KEY") else "mock")
+    # Determine default provider (default to Cloud Server API gemini)
+    default_p = os.getenv("DEFAULT_PROVIDER") or "gemini"
 
     parser = argparse.ArgumentParser(
         prog="codepilot",

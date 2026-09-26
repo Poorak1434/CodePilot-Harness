@@ -15,7 +15,7 @@ from codepilot.tools.git import GitDiffTool, GitStatusTool
 
 
 class InteractiveShell:
-    def __init__(self, initial_repo: str = ".", provider: str = "mock", model_name: Optional[str] = None):
+    def __init__(self, initial_repo: str = ".", provider: str = "gemini", model_name: Optional[str] = None):
         self.repo_path = Path(initial_repo).resolve()
         self.provider = provider
         self.model_name = model_name

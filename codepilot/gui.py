@@ -96,11 +96,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <div class="control-group">
                 <div class="section-title">Model Provider</div>
                 <select id="providerSelect" onchange="updateProviderKeyInput()">
-                    <option value="gemini">Gemini 2.5 Flash</option>
-                    <option value="openai">OpenAI GPT-4o-mini</option>
-                    <option value="anthropic">Claude 3.5 Sonnet</option>
-                    <option value="ollama">Ollama On-Device Local LLM</option>
-                    <option value="mock" selected>Mock Intelligent Agent</option>
+                    <option value="gemini" selected>Gemini 2.5 Flash (Cloud Server API)</option>
+                    <option value="openai">OpenAI GPT-4o-mini (Cloud Server API)</option>
+                    <option value="anthropic">Claude 3.5 Sonnet (Cloud Server API)</option>
+                    <option value="ollama">Ollama Local LLM</option>
+                    <option value="mock">Zero-Shot Agent Engine</option>
                 </select>
             </div>
 
