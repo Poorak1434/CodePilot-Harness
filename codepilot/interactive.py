@@ -1,6 +1,6 @@
 """
 Interactive Chat & REPL mode for CodePilot Harness.
-Supports repository tasks and direct code snippet pasting & debugging.
+Supports repository tasks, direct code snippet pasting & debugging, and graceful interrupt handling.
 """
 import sys
 import os
@@ -42,12 +42,32 @@ class InteractiveShell:
                 if user_input.startswith("```"):
                     user_input = self._read_multiline_block(first_line=user_input)
 
-                # Check if user pasted code or task
-                self._run_task(user_input)
+                # Filter out single line code fragments (e.g. 'else:', 'return ...') from accidental multi-line pastes
+                if self._is_incomplete_code_fragment(user_input):
+                    print("\033[1;33m[Detected partial code line fragment. Use '/paste' command to paste multi-line code.]\033[0m")
+                    continue
 
-            except (KeyboardInterrupt, EOFError):
+                # Execute task issue with Ctrl+C interrupt protection
+                try:
+                    self._run_task(user_input)
+                except KeyboardInterrupt:
+                    print("\n\033[1;31m[Task execution interrupted by user (Ctrl+C). Returning to prompt.]\033[0m\n")
+
+            except EOFError:
                 print("\nExiting CodePilot. Goodbye!")
                 break
+            except KeyboardInterrupt:
+                print("\n\033[1;33m[Press Ctrl+C again or type /exit to exit CodePilot]\033[0m")
+
+    def _is_incomplete_code_fragment(self, text: str) -> bool:
+        """Checks if input is a partial code fragment from accidental multi-line paste."""
+        stripped = text.strip()
+        fragments = ("else:", "elif ", "return ", "def ", "class ", "if __name__", "main()", "print(", "greeting =", "active_users =")
+        if stripped in ("else:", "main()", "pass") or (len(stripped) < 40 and any(stripped.startswith(f) for f in fragments)):
+            # If it doesn't contain a full sentence or issue task keyword
+            if not any(k in stripped.lower() for k in ("fix", "bug", "issue", "create", "add", "update", "test")):
+                return True
+        return False
 
     def _read_multiline_block(self, first_line: str = "") -> str:
         lines = [first_line] if first_line else []
