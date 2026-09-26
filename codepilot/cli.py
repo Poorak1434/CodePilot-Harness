@@ -44,14 +44,14 @@ def main():
     # `chat` / interactive subcommand
     chat_parser = subparsers.add_parser("chat", help="Start continuous interactive chat / REPL mode.")
     chat_parser.add_argument("--repo", type=str, default=".", help="Target repository directory path.")
-    chat_parser.add_argument("--provider", type=str, default=default_p, choices=["gemini", "openai", "anthropic", "ollama", "mock"], help="LLM Provider.")
+    chat_parser.add_argument("--provider", type=str, default=default_p, choices=["groq", "gemini", "openai", "anthropic", "ollama", "mock"], help="LLM Provider.")
     chat_parser.add_argument("--model", type=str, default=None, help="Specific model name.")
 
     # `fix` subcommand
     fix_parser = subparsers.add_parser("fix", help="Execute autonomous coding loop for a single task.")
     fix_parser.add_argument("--repo", type=str, default=".", help="Target repository directory path.")
     fix_parser.add_argument("--issue", type=str, required=True, help="Task or issue description.")
-    fix_parser.add_argument("--provider", type=str, default=default_p, choices=["gemini", "openai", "anthropic", "ollama", "mock"], help="LLM Provider.")
+    fix_parser.add_argument("--provider", type=str, default=default_p, choices=["groq", "gemini", "openai", "anthropic", "ollama", "mock"], help="LLM Provider.")
     fix_parser.add_argument("--model", type=str, default=None, help="Specific model name.")
     fix_parser.add_argument("--max-retries", type=int, default=5, help="Maximum number of retry attempts.")
     fix_parser.add_argument("--test-cmd", type=str, default=None, help="Custom test command.")

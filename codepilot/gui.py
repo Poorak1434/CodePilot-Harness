@@ -196,14 +196,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
                 <div class="agent-controls-row">
                     <select id="providerSelect" class="provider-select-mini">
-                        <option value="gemini" selected>Gemini 2.0 Flash (Cloud Server)</option>
+                        <option value="groq" selected>Groq Llama 3.3 70B (Fast Cloud Server)</option>
+                        <option value="gemini">Gemini 2.0 Flash (Cloud Server)</option>
                         <option value="openai">OpenAI GPT-4o-mini (Cloud Server)</option>
                         <option value="anthropic">Claude 3.5 Sonnet (Cloud Server)</option>
                         <option value="ollama">Ollama Local LLM</option>
                         <option value="mock">Zero-Shot Agent Engine</option>
                     </select>
 
-                    <input type="text" id="apiKeyInput" class="key-input-mini" placeholder="API Key...">
+                    <input type="text" id="apiKeyInput" class="key-input-mini" value="{{GROQ_API_KEY}}" placeholder="API Key...">
                 </div>
             </div>
         </div>
@@ -359,7 +360,7 @@ class CodePilotGUIHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path in ("/", "/index.html"):
-            html = HTML_TEMPLATE.replace("{{REPO_PATH}}", str(Path(self.repo_path).resolve()))
+            html = HTML_TEMPLATE.replace("{{REPO_PATH}}", str(Path(self.repo_path).resolve())).replace("{{GROQ_API_KEY}}", os.getenv("GROQ_API_KEY", ""))
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.end_headers()

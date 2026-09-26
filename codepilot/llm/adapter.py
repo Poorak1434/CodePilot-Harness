@@ -26,10 +26,11 @@ class LLMAdapter:
             "gemini": "gemini-2.0-flash",
             "openai": "gpt-4o-mini",
             "anthropic": "claude-3-5-sonnet-20241022",
+            "groq": "llama-3.3-70b-versatile",
             "ollama": "llama3",
             "mock": "mock-llm-v1"
         }
-        return defaults.get(provider, "mock-llm-v1")
+        return defaults.get(provider, "llama-3.3-70b-versatile")
 
     def set_mock_script(self, script: List[Dict[str, Any]]) -> None:
         """Configures replay sequence for deterministic mock provider."""
@@ -44,7 +45,9 @@ class LLMAdapter:
         full_prompt = f"{system_prompt}\n{user_context}"
         self.last_prompt_tokens = max(1, len(full_prompt) // 4)
 
-        if self.provider == "openai":
+        if self.provider == "groq":
+            resp = self._call_groq(system_prompt, user_context, history)
+        elif self.provider == "openai":
             resp = self._call_openai(system_prompt, user_context, history)
         elif self.provider == "gemini":
             resp = self._call_gemini(system_prompt, user_context, history)
@@ -373,6 +376,65 @@ class LLMAdapter:
                 "thought": f"Ollama Local LLM Error: {str(e)}.",
                 "plan": ["Ollama error"],
                 "tool_call": {"name": "done", "arguments": {"reason": f"Ollama Error: {str(e)}"}}
+            }
+
+    def _call_groq(self, system_prompt: str, user_context: str, history: List[Dict[str, Any]]) -> Dict[str, Any]:
+        try:
+            api_key = self.api_key or os.getenv("GROQ_API_KEY")
+            try:
+                from openai import OpenAI
+                client = OpenAI(
+                    base_url="https://api.groq.com/openai/v1",
+                    api_key=api_key
+                )
+                messages = [{"role": "system", "content": system_prompt + "\nIMPORTANT: You MUST respond strictly in valid JSON format with keys 'thought', 'plan', and 'tool_call'."}]
+                messages.append({"role": "user", "content": user_context})
+                for h in history[-6:]:
+                    messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
+
+                response = client.chat.completions.create(
+                    model=self.model_name or "llama-3.3-70b-versatile",
+                    messages=messages,
+                    response_format={"type": "json_object"},
+                    temperature=0.1
+                )
+                raw_text = response.choices[0].message.content
+                return self._parse_json(raw_text)
+            except ImportError:
+                import urllib.request
+                url = "https://api.groq.com/openai/v1/chat/completions"
+                messages = [{"role": "system", "content": system_prompt + "\nIMPORTANT: You MUST respond strictly in valid JSON format with keys 'thought', 'plan', and 'tool_call'."}]
+                messages.append({"role": "user", "content": user_context})
+                for h in history[-6:]:
+                    messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
+
+                payload = json.dumps({
+                    "model": self.model_name or "llama-3.3-70b-versatile",
+                    "messages": messages,
+                    "response_format": {"type": "json_object"},
+                    "temperature": 0.1
+                }).encode("utf-8")
+
+                req = urllib.request.Request(
+                    url,
+                    data=payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {api_key}"
+                    }
+                )
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    return self._parse_json(text)
+        except Exception as e:
+            err_msg = f"\033[1;31m[Groq API Error: {str(e)}]\033[0m"
+            print(err_msg, file=sys.stderr)
+            return {
+                "_api_error": True,
+                "thought": f"Groq API Error: {str(e)}.",
+                "plan": ["API key error"],
+                "tool_call": {"name": "done", "arguments": {"reason": f"Groq API Error: {str(e)}"}}
             }
 
     def _parse_json(self, text: str) -> Dict[str, Any]:

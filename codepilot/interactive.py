@@ -138,7 +138,7 @@ class InteractiveShell:
                     self.repo_path = new_path
                     print(f"\033[1;32mActive repository updated to: {self.repo_path}\033[0m")
 
-        elif cmd in ("/gemini", "/openai", "/anthropic", "/ollama", "/mock"):
+        elif cmd in ("/groq", "/gemini", "/openai", "/anthropic", "/ollama", "/mock"):
             p_name = cmd[1:]
             self.provider = p_name
             env_var = f"{self.provider.upper()}_API_KEY"
