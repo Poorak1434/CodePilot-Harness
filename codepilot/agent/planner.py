@@ -7,6 +7,10 @@ from typing import List, Dict, Any
 class Planner:
     @staticmethod
     def create_initial_plan(task_description: str, relevant_files: List[Dict[str, Any]]) -> List[str]:
+        task_lower = task_description.lower().strip()
+        if any(task_lower == g or task_lower.startswith(f"{g} ") for g in ("hello", "hi", "hey", "who are you", "what can you do")):
+            return ["Respond to user greeting and explain CodePilot capabilities"]
+
         plan = [
             f"Explore repository and inspect relevant files: {[f['path'] for f in relevant_files]}",
             "Identify buggy functions or missing assertions",
