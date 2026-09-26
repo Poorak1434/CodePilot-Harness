@@ -1,8 +1,10 @@
 """
 Interactive Chat & REPL mode for CodePilot Harness.
+Supports repository tasks and direct code snippet pasting & debugging.
 """
 import sys
 import os
+import re
 from pathlib import Path
 from typing import Optional
 from codepilot import __version__
@@ -36,12 +38,31 @@ class InteractiveShell:
                         break
                     continue
 
-                # Execute task issue
+                # Check if input starts a multi-line code block ```
+                if user_input.startswith("```"):
+                    user_input = self._read_multiline_block(first_line=user_input)
+
+                # Check if user pasted code or task
                 self._run_task(user_input)
 
             except (KeyboardInterrupt, EOFError):
                 print("\nExiting CodePilot. Goodbye!")
                 break
+
+    def _read_multiline_block(self, first_line: str = "") -> str:
+        lines = [first_line] if first_line else []
+        print("\033[1;33m[Entering multi-line code mode. Type 'END' or '```' on a new line to finish]\033[0m")
+        while True:
+            try:
+                line = input("... ").rstrip()
+                if line.strip() in ("END", "```") and len(lines) > 1:
+                    if line.strip() == "```":
+                        lines.append(line)
+                    break
+                lines.append(line)
+            except (KeyboardInterrupt, EOFError):
+                break
+        return "\n".join(lines)
 
     def _print_header(self) -> None:
         print("\033[1;36m" + "=" * 70 + "\033[0m")
@@ -49,7 +70,7 @@ class InteractiveShell:
         print("\033[1;36m" + "=" * 70 + "\033[0m")
         print(f" • Target Repository : \033[1;32m{self.repo_path}\033[0m")
         print(f" • Model Provider   : \033[1;32m{self.provider}\033[0m")
-        print(f" • Slash Commands   : \033[1;33m/repo <path>, /provider <name>, /verify, /diff, /status, /help, /exit\033[0m")
+        print(f" • Slash Commands   : \033[1;33m/paste, /repo <path>, /provider <name>, /verify, /diff, /status, /help, /exit\033[0m")
         print("\033[1;36m" + "=" * 70 + "\033[0m\n")
 
     def _handle_slash_command(self, cmd_line: str) -> bool:
@@ -63,6 +84,7 @@ class InteractiveShell:
 
         elif cmd == "/help":
             print("\nAvailable Commands:")
+            print("  /paste            - Paste multi-line code snippet for quick debugging & fix")
             print("  /repo <path>      - Set active repository directory")
             print("  /provider <name>  - Set model provider (gemini, openai, anthropic, mock)")
             print("  /test-cmd <cmd>   - Set custom test command (e.g. pytest or python3 -m unittest)")
@@ -71,6 +93,11 @@ class InteractiveShell:
             print("  /status           - Show repository git status")
             print("  /clear            - Clear terminal screen")
             print("  /exit             - Exit interactive shell\n")
+
+        elif cmd in ("/paste", "/code", "/fixcode"):
+            code_text = self._read_multiline_block()
+            if code_text.strip():
+                self._run_snippet_task(code_text)
 
         elif cmd == "/repo":
             if not arg:
@@ -135,7 +162,33 @@ class InteractiveShell:
 
         return True
 
+    def _run_snippet_task(self, snippet_text: str) -> None:
+        """Handles pasted code snippet directly."""
+        clean_code = snippet_text.replace("```python", "").replace("```", "").strip()
+
+        # Save snippet to sandbox_snippet.py inside target repo
+        snippet_file = self.repo_path / "sandbox_snippet.py"
+        snippet_file.write_text(clean_code, encoding="utf-8")
+
+        task_desc = f"Fix and debug the code snippet in sandbox_snippet.py: {clean_code[:100]}"
+        self._run_task(task_desc)
+
+        # After task completes, output the fixed final code snippet
+        if snippet_file.exists():
+            fixed_code = snippet_file.read_text(encoding="utf-8")
+            print("\n\033[1;32m" + "=" * 70)
+            print("✨ FINAL CORRECTED CODE OUTPUT:")
+            print("=" * 70 + "\033[0m")
+            print(fixed_code)
+            print("\033[1;32m" + "=" * 70 + "\033[0m\n")
+
     def _run_task(self, issue_description: str) -> None:
+        # Check if user input is raw code (contains def/class/function/import or multi-line code)
+        if ("def " in issue_description or "class " in issue_description or "import " in issue_description or "\n" in issue_description) and not issue_description.startswith("Fix "):
+            print("\033[1;33m[Detected raw code input. Processing code snippet debug & fix...]\033[0m")
+            self._run_snippet_task(issue_description)
+            return
+
         print("\n" + "=" * 70)
         print(f"▶ EXECUTING TASK: {issue_description}")
         print("=" * 70)
@@ -162,5 +215,17 @@ class InteractiveShell:
         print(f" • Tool Invocations : {metrics['tool_calls']}")
         print(f" • Retries / Fixes  : {metrics['retry_count']}")
         print(f" • Modified Files   : {', '.join(report['verification']['files_modified']) or 'None'}")
-        print(f" • Evidence Report  : EVIDENCE_REPORT.json & EVIDENCE_REPORT.md saved in target repo")
+        
+        # Display the modified file contents directly if files were changed!
+        if report['verification']['files_modified']:
+            print("\n\033[1;32m" + "-" * 70)
+            print("✨ FINAL CORRECTED FILE CODE OUTPUT:")
+            print("-" * 70 + "\033[0m")
+            for mod_f in report['verification']['files_modified']:
+                mod_path = self.repo_path / mod_f
+                if mod_path.is_file():
+                    print(f"\033[1;34m[File: {mod_f}]\033[0m")
+                    print(mod_path.read_text(encoding="utf-8", errors="replace"))
+            print("\033[1;32m" + "-" * 70 + "\033[0m")
+
         print("=" * 70 + "\n")
