@@ -66,6 +66,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .log-step { border-left: 3px solid var(--accent-cyan); }
         .log-tool { border-left: 3px solid var(--accent-purple); }
         .log-success { border-left: 3px solid var(--accent-green); background: rgba(16, 185, 129, 0.08); }
+        .log-thought { border-left: 3px solid #f59e0b; background: rgba(245, 158, 11, 0.08); color: #fbbf24; font-size: 0.92rem; }
+        .log-code { border-left: 3px solid var(--accent-cyan); background: rgba(0, 242, 254, 0.06); color: #e5e7eb; font-size: 0.9rem; font-family: 'Fira Code', monospace; }
 
         .input-bar-container { padding: 20px 24px; border-top: 1px solid var(--bg-card-border); background: #07090e; }
         .input-box { display: flex; gap: 12px; }
@@ -202,11 +204,20 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     appendLog(`⚠️ TASK COMPLETED: ${data.status}`, 'log-step');
                 }
 
+                // Render Reasoning & Code Output directly in Main Screen Terminal Log
+                if (data.last_thought) {
+                    appendLog(`✨ AI REASONING OUTPUT:\n${data.last_thought}`, 'log-thought');
+                }
+
+                if (data.output_code) {
+                    appendLog(`✨ GENERATED CODE OUTPUT (${data.output_file || 'Solution'}):\n\n${data.output_code}`, 'log-code');
+                }
+
                 // Update metrics
                 document.getElementById('valRuntime').innerText = data.telemetry.runtime_seconds + 's';
                 document.getElementById('valTokens').innerText = (data.telemetry.prompt_tokens || 0) + ' / ' + (data.telemetry.completion_tokens || 0);
 
-                // Update Output Box
+                // Update Right Inspector Output Box
                 const card = document.getElementById('outputCard');
                 const title = document.getElementById('outputTitle');
                 const code = document.getElementById('outputCode');
