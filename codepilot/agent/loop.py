@@ -97,9 +97,11 @@ class AutonomousAgentLoop:
                 eff_test_cmd = self.test_command
                 if not eff_test_cmd:
                     ws = orch.safety.workspace_root
-                    for script in ("solution.cpp", "multiply_numbers.py", "add_numbers.py", "solution.py", "sandbox_snippet.py"):
+                    for script in ("solution.c", "solution.cpp", "multiply_numbers.py", "add_numbers.py", "solution.py", "sandbox_snippet.py"):
                         if (ws / script).exists():
-                            if script.endswith(".cpp"):
+                            if script.endswith(".c"):
+                                eff_test_cmd = "gcc -o solution solution.c && ./solution"
+                            elif script.endswith(".cpp"):
                                 eff_test_cmd = "g++ -o solution solution.cpp && ./solution"
                             else:
                                 eff_test_cmd = f"python3 {script}"

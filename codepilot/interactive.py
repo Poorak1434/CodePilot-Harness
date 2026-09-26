@@ -290,8 +290,15 @@ class InteractiveShell:
             print("=" * 70 + "\n")
 
         # Direct Output Mode (Clean output display)
-        files_mod = report['verification']['files_modified']
+        files_mod = list(report['verification']['files_modified'])
         valid_exts = (".py", ".cpp", ".c", ".h", ".hpp", ".js", ".ts", ".java", ".json", ".md", ".html", ".css", ".txt")
+
+        # Also check workspace for recently created target files if git status didn't list them yet
+        known_scripts = ["solution.c", "solution.cpp", "solution.py", "solution.js", "add_numbers.py", "multiply_numbers.py", "sandbox_snippet.py"]
+        for ks in known_scripts:
+            if (self.repo_path / ks).exists() and ks not in files_mod:
+                files_mod.append(ks)
+
         source_files = [f for f in files_mod if any(f.endswith(ext) for ext in valid_exts)]
 
         if source_files:

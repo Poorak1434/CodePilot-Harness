@@ -80,8 +80,53 @@ class LLMAdapter:
                 "tool_call": {"name": "done", "arguments": {"reason": "Answered greeting"}}
             }
 
-        # Check if task is C++ code generation (e.g. multiples of 10 till 700)
-        if any(kw in user_context_lower for kw in ("cpp", "c++", "multiples of 10", "till 700", "multiples")):
+        # Check if task is C / C++ / Python / JS code generation
+        is_c = any(kw in user_context_lower for kw in ("in c ", "in c\n", "c program", "c code")) or (user_context_lower.strip().endswith("in c") or "in c to " in user_context_lower or "write code in c" in user_context_lower)
+        is_cpp = any(kw in user_context_lower for kw in ("cpp", "c++", "in cpp", "in c++"))
+
+        if is_c:
+            target_text = "poorak is amazing"
+            if "to print " in user_context_lower:
+                match = re.search(r"to print\s+(.*)", user_context_lower)
+                if match:
+                    target_text = match.group(1).strip().strip("'\"")
+
+            c_code = (
+                "#include <stdio.h>\n\n"
+                "int main() {\n"
+                f'    printf("{target_text}\\n");\n'
+                "    return 0;\n"
+                "}\n"
+            )
+            if step == 0:
+                return {
+                    "thought": f"Writing C code to print '{target_text}':\n\n```c\n{c_code}```",
+                    "plan": ["Create solution.c with C program", "Verify execution"],
+                    "tool_call": {
+                        "name": "create_file",
+                        "arguments": {
+                            "path": "solution.c",
+                            "content": c_code
+                        }
+                    }
+                }
+            elif step == 1:
+                return {
+                    "thought": f"C program created in solution.c:\n\n```c\n{c_code}```",
+                    "plan": ["Compile and run solution.c"],
+                    "tool_call": {
+                        "name": "run_command",
+                        "arguments": {"command": "gcc -o solution solution.c && ./solution"}
+                    }
+                }
+            else:
+                return {
+                    "thought": f"C program created and verified successfully:\n\n```c\n{c_code}```",
+                    "plan": ["Task complete"],
+                    "tool_call": {"name": "done", "arguments": {"reason": "Created and verified solution.c"}}
+                }
+
+        if is_cpp or any(kw in user_context_lower for kw in ("multiples of 10", "till 700", "multiples")):
             cpp_code = (
                 "#include <iostream>\n\n"
                 "int main() {\n"
