@@ -250,7 +250,20 @@ class InteractiveShell:
             print(fixed_code)
             print("\033[1;32m" + "=" * 70 + "\033[0m\n")
 
+    def _cleanup_stale_scripts(self) -> None:
+        known_scripts = ["solution.c", "solution.cpp", "solution.py", "solution.js", "solution", "add_numbers.py", "multiply_numbers.py", "sandbox_snippet.py"]
+        for ks in known_scripts:
+            p = self.repo_path / ks
+            if p.exists():
+                try:
+                    p.unlink()
+                except Exception:
+                    pass
+
     def _run_task(self, issue_description: str) -> None:
+        # Clean up previous task scratch files
+        self._cleanup_stale_scripts()
+
         # Check if user input is raw code (contains def/class/function/import or multi-line code)
         if ("def " in issue_description or "class " in issue_description or "import " in issue_description or "\n" in issue_description) and not issue_description.startswith("Fix "):
             if self.verbose:
@@ -293,13 +306,14 @@ class InteractiveShell:
         files_mod = list(report['verification']['files_modified'])
         valid_exts = (".py", ".cpp", ".c", ".h", ".hpp", ".js", ".ts", ".java", ".json", ".md", ".html", ".css", ".txt")
 
-        # Also check workspace for recently created target files if git status didn't list them yet
-        known_scripts = ["solution.c", "solution.cpp", "solution.py", "solution.js", "add_numbers.py", "multiply_numbers.py", "sandbox_snippet.py"]
+        # Also check workspace for target file created during this run if missing from git modified list
+        known_scripts = ["solution.py", "solution.c", "solution.cpp", "solution.js", "add_numbers.py", "multiply_numbers.py", "sandbox_snippet.py"]
         for ks in known_scripts:
             if (self.repo_path / ks).exists() and ks not in files_mod:
                 files_mod.append(ks)
 
         source_files = [f for f in files_mod if any(f.endswith(ext) for ext in valid_exts)]
+        source_files = [f for f in source_files if not f.endswith("EVIDENCE_REPORT.json") and not f.endswith("EVIDENCE_REPORT.md")]
 
         if source_files:
             for mod_f in source_files:

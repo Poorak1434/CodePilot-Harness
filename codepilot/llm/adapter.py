@@ -50,6 +50,8 @@ class LLMAdapter:
             resp = self._call_gemini(system_prompt, user_context, history)
         elif self.provider == "anthropic":
             resp = self._call_anthropic(system_prompt, user_context, history)
+        elif self.provider == "ollama":
+            resp = self._call_ollama(system_prompt, user_context, history)
         else:
             resp = self._generate_mock_response(user_context)
 
@@ -70,61 +72,112 @@ class LLMAdapter:
 
         step = self.mock_step_index
         self.mock_step_index += 1
-
-        # Check if user context task is conversational greeting or general question
         user_context_lower = user_context.lower()
-        if any(re.search(rf"\b{g}\b", user_context_lower) for g in ("hello", "hi", "hey", "who are you", "what can you do")):
+
+        # 1. Greetings & Identity Queries
+        if any(re.search(rf"\b{g}\b", user_context_lower) for g in ("hello", "hi", "hey", "who are you", "what can you do", "kaun ho", "namaste")):
             return {
-                "thought": "Hello! I am CodePilot, your autonomous AI software engineering and code debugging assistant. I can inspect repositories, fix code bugs, run system commands, and execute tests.",
-                "plan": ["Answer user greeting"],
-                "tool_call": {"name": "done", "arguments": {"reason": "Answered greeting"}}
+                "thought": "Hello! I am CodePilot, your autonomous AI software engineering assistant. I can write code in any language, perform system tasks, debug issues, and execute code locally.",
+                "plan": ["Respond to user query"],
+                "tool_call": {"name": "done", "arguments": {"reason": "Answered user greeting"}}
             }
 
-        # Check if task is C / C++ / Python / JS code generation
-        is_c = any(kw in user_context_lower for kw in ("in c ", "in c\n", "c program", "c code")) or (user_context_lower.strip().endswith("in c") or "in c to " in user_context_lower or "write code in c" in user_context_lower)
-        is_cpp = any(kw in user_context_lower for kw in ("cpp", "c++", "in cpp", "in c++"))
+        # 2. Dynamic Code Generation Requests (Python, C, C++, JS, Java, etc. in English / Hindi / Hinglish)
+        is_code_request = any(kw in user_context_lower for kw in (
+            "write code", "write a code", "code in", "program to", "script to", "print", "create a function", "make a program", "code likho", "program banao"
+        ))
 
-        if is_c:
-            target_text = "poorak is amazing"
-            if "to print " in user_context_lower:
-                match = re.search(r"to print\s+(.*)", user_context_lower)
-                if match:
-                    target_text = match.group(1).strip().strip("'\"")
+        if is_code_request:
+            target_lang = "python"
+            target_file = "solution.py"
+            cmd = "python3 solution.py"
 
-            c_code = (
-                "#include <stdio.h>\n\n"
-                "int main() {\n"
-                f'    printf("{target_text}\\n");\n'
-                "    return 0;\n"
-                "}\n"
-            )
+            if any(kw in user_context_lower for kw in ("in c ", "in c\n", "c program", "c code", "in c to")) or user_context_lower.strip().endswith("in c"):
+                target_lang = "c"
+                target_file = "solution.c"
+                cmd = "gcc -o solution solution.c && ./solution"
+            elif any(kw in user_context_lower for kw in ("cpp", "c++", "in cpp", "in c++")):
+                target_lang = "cpp"
+                target_file = "solution.cpp"
+                cmd = "g++ -o solution solution.cpp && ./solution"
+            elif any(kw in user_context_lower for kw in ("js", "javascript", "node")):
+                target_lang = "js"
+                target_file = "solution.js"
+                cmd = "node solution.js"
+
+            # Extract print text or target task
+            print_text = ""
+            print_match = re.search(r"(?:to print|print|display|dikhao)\s+(.*)", user_context, re.IGNORECASE)
+            if print_match:
+                print_text = print_match.group(1).strip().strip("'\"`")
+                # Remove trailing prompt instructions
+                print_text = re.split(r"\b(using|in python|in c|in cpp|in js)\b", print_text, flags=re.IGNORECASE)[0].strip()
+
+            if not print_text:
+                print_text = "Task executed successfully!"
+
+            if target_lang == "c":
+                code_str = (
+                    "#include <stdio.h>\n\n"
+                    "int main() {\n"
+                    f'    printf("{print_text}\\n");\n'
+                    "    return 0;\n"
+                    "}\n"
+                )
+            elif target_lang == "cpp":
+                code_str = (
+                    "#include <iostream>\n\n"
+                    "int main() {\n"
+                    f'    std::cout << "{print_text}" << std::endl;\n'
+                    "    return 0;\n"
+                    "}\n"
+                )
+            elif target_lang == "js":
+                code_str = f'console.log("{print_text}");\n'
+            else: # python
+                code_str = (
+                    "# Python Code generated by CodePilot AI\n\n"
+                    "def main():\n"
+                    f'    print("{print_text}")\n\n'
+                    "if __name__ == '__main__':\n"
+                    "    main()\n"
+                )
+
             if step == 0:
                 return {
-                    "thought": f"Writing C code to print '{target_text}':\n\n```c\n{c_code}```",
-                    "plan": ["Create solution.c with C program", "Verify execution"],
+                    "thought": f"Writing {target_lang.upper()} program for task '{print_text}':\n\n```{target_lang}\n{code_str}```",
+                    "plan": [f"Create {target_file}", "Execute and verify script"],
                     "tool_call": {
                         "name": "create_file",
                         "arguments": {
-                            "path": "solution.c",
-                            "content": c_code
+                            "path": target_file,
+                            "content": code_str
                         }
                     }
                 }
             elif step == 1:
                 return {
-                    "thought": f"C program created in solution.c:\n\n```c\n{c_code}```",
-                    "plan": ["Compile and run solution.c"],
+                    "thought": f"Program created in {target_file}:\n\n```{target_lang}\n{code_str}```",
+                    "plan": [f"Run {cmd}"],
                     "tool_call": {
                         "name": "run_command",
-                        "arguments": {"command": "gcc -o solution solution.c && ./solution"}
+                        "arguments": {"command": cmd}
                     }
                 }
             else:
                 return {
-                    "thought": f"C program created and verified successfully:\n\n```c\n{c_code}```",
+                    "thought": f"Code generation task completed and verified successfully:\n\n```{target_lang}\n{code_str}```",
                     "plan": ["Task complete"],
-                    "tool_call": {"name": "done", "arguments": {"reason": "Created and verified solution.c"}}
+                    "tool_call": {"name": "done", "arguments": {"reason": f"Successfully created and verified {target_file}"}}
                 }
+
+        # 3. Handle General System / Repo Questions in Hindi / English / Hinglish
+        if any(kw in user_context_lower for kw in ("kaise", "kya", "why", "how", "what", "tell me", "btao", "samjha", "help")):
+            return {
+                "thought": f"CodePilot AI: {user_context[:150]}... Ready to execute system commands, write code, and solve repository tasks.",
+                "plan": ["Answer query"],
+                "tool_call": {"name": "done", "arguments": {"reason": "Answered general query"}}
+            }
 
         if is_cpp or any(kw in user_context_lower for kw in ("multiples of 10", "till 700", "multiples")):
             cpp_code = (
@@ -418,6 +471,37 @@ class LLMAdapter:
                 "thought": f"Anthropic API Error: {str(e)}.",
                 "plan": ["API key error"],
                 "tool_call": {"name": "done", "arguments": {"reason": f"Anthropic API Error: {str(e)}"}}
+            }
+
+    def _call_ollama(self, system_prompt: str, user_context: str, history: List[Dict[str, Any]]) -> Dict[str, Any]:
+        try:
+            import urllib.request
+            url = "http://localhost:11434/api/chat"
+            messages = [{"role": "system", "content": system_prompt + "\nIMPORTANT: You MUST respond strictly in valid JSON format with 'thought', 'plan', and 'tool_call'."}]
+            messages.append({"role": "user", "content": user_context})
+            for h in history[-6:]:
+                messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
+
+            payload = json.dumps({
+                "model": self.model_name or "llama3",
+                "messages": messages,
+                "stream": False,
+                "format": "json"
+            }).encode("utf-8")
+
+            req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                text = data.get("message", {}).get("content", "")
+                return self._parse_json(text)
+        except Exception as e:
+            err_msg = f"\033[1;31m[Ollama API Error: {str(e)}]\033[0m"
+            print(err_msg, file=sys.stderr)
+            return {
+                "_api_error": True,
+                "thought": f"Ollama Local LLM Error: {str(e)}.",
+                "plan": ["Ollama error"],
+                "tool_call": {"name": "done", "arguments": {"reason": f"Ollama Error: {str(e)}"}}
             }
 
     def _parse_json(self, text: str) -> Dict[str, Any]:
