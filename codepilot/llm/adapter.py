@@ -62,11 +62,14 @@ class LLMAdapter:
         step = self.mock_step_index
         self.mock_step_index += 1
 
-        # Check if user context is conversational greeting or question
-        if any(g in user_context.lower() for g in ("hello", "hi", "hey", "who are you", "what can you do")):
+        # Check if user context task is conversational greeting or general question
+        first_line = user_context.splitlines()[1] if len(user_context.splitlines()) > 1 else user_context
+        first_line_lower = first_line.lower()
+
+        if any(re.search(rf"\b{g}\b", first_line_lower) for g in ("hello", "hi", "hey", "who are you", "what can you do")):
             return {
                 "thought": "Hello! I am CodePilot, your autonomous AI software engineering and code debugging assistant. I can inspect repositories, fix code bugs, run system commands, and execute tests.",
-                "plan": ["Answer user question"],
+                "plan": ["Answer user greeting"],
                 "tool_call": {"name": "done", "arguments": {"reason": "Answered greeting"}}
             }
 
@@ -195,8 +198,8 @@ class LLMAdapter:
             print(err_msg, file=sys.stderr)
             return {
                 "thought": f"OpenAI API Error: {str(e)}.",
-                "plan": ["API key error"],
-                "tool_call": {"name": "done", "arguments": {"reason": f"OpenAI API Error: {str(e)}"}}
+                "plan": ["API error"],
+                "tool_call": {"name": "done", "arguments": {"reason": f"API Error: {str(e)}"}}
             }
 
     def _call_gemini(self, system_prompt: str, user_context: str, history: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -217,7 +220,7 @@ class LLMAdapter:
             err_msg = f"\033[1;31m[Gemini API Error: {str(e)}]\033[0m"
             print(err_msg, file=sys.stderr)
             return {
-                "thought": f"Gemini API Error: {str(e)}. Please check your API key using /key command or /provider gemini.",
+                "thought": f"Gemini API Error: {str(e)}. Switch to provider mock using /provider mock or set valid key with /key AIzaSy...",
                 "plan": ["API key error"],
                 "tool_call": {"name": "done", "arguments": {"reason": f"Gemini API Error: {str(e)}"}}
             }
