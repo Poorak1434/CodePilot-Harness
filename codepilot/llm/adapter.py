@@ -63,10 +63,8 @@ class LLMAdapter:
         self.mock_step_index += 1
 
         # Check if user context task is conversational greeting or general question
-        first_line = user_context.splitlines()[1] if len(user_context.splitlines()) > 1 else user_context
-        first_line_lower = first_line.lower()
-
-        if any(re.search(rf"\b{g}\b", first_line_lower) for g in ("hello", "hi", "hey", "who are you", "what can you do")):
+        user_context_lower = user_context.lower()
+        if any(re.search(rf"\b{g}\b", user_context_lower) for g in ("hello", "hi", "hey", "who are you", "what can you do")):
             return {
                 "thought": "Hello! I am CodePilot, your autonomous AI software engineering and code debugging assistant. I can inspect repositories, fix code bugs, run system commands, and execute tests.",
                 "plan": ["Answer user greeting"],

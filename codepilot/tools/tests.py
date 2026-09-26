@@ -20,11 +20,17 @@ class RunTestsTool(BaseTool):
 
     def __init__(self, safety: SafetyPolicy, default_test_command: Optional[str] = None):
         self.safety = safety
-        self.default_test_command = default_test_command or "python3 -m unittest discover"
+        self.default_test_command = default_test_command
         self.cmd_tool = RunCommandTool(safety)
 
     def execute(self, test_command: Optional[str] = None, **kwargs: Any) -> ToolResult:
         eff_command = test_command or self.default_test_command
+        if not eff_command:
+            ws = self.safety.workspace_root
+            if (ws / "tests").exists() or (ws / "pyproject.toml").exists():
+                eff_command = "pytest"
+            else:
+                eff_command = "python3 -m unittest discover"
 
         res = self.cmd_tool.execute(command=eff_command, timeout=60.0)
 

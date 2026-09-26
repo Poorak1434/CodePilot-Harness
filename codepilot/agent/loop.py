@@ -158,7 +158,7 @@ class AutonomousAgentLoop:
         if not last_verification:
             last_verification = orch.verification.verify(test_command=self.test_command)
 
-        if last_verification.passed:
+        if last_verification.passed or state.is_completed:
             logger.log("Task completed successfully.")
         else:
             logger.log(f"Task finished without verified pass: {state.failure_reason or last_verification.reason}")
@@ -167,7 +167,8 @@ class AutonomousAgentLoop:
             task_description=task_description,
             verification=last_verification,
             telemetry_metrics=metrics.summary(),
-            execution_trace=logger.get_formatted_trace()
+            execution_trace=logger.get_formatted_trace(),
+            is_completed=state.is_completed
         )
 
         EvidenceReporter.save_report(report, output_directory=str(orch.safety.workspace_root))
