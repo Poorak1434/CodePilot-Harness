@@ -11,6 +11,9 @@ from codepilot.safety.policy import SafetyPolicy
 from codepilot.verification import VerificationRunner
 
 
+from codepilot.interactive import InteractiveShell
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="codepilot",
@@ -20,8 +23,14 @@ def main():
 
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
 
+    # `chat` / interactive subcommand
+    chat_parser = subparsers.add_parser("chat", help="Start continuous interactive chat / REPL mode.")
+    chat_parser.add_argument("--repo", type=str, default=".", help="Target repository directory path.")
+    chat_parser.add_argument("--provider", type=str, default="mock", choices=["gemini", "openai", "anthropic", "ollama", "mock"], help="LLM Provider.")
+    chat_parser.add_argument("--model", type=str, default=None, help="Specific model name.")
+
     # `fix` subcommand
-    fix_parser = subparsers.add_parser("fix", help="Execute autonomous coding loop to solve an issue.")
+    fix_parser = subparsers.add_parser("fix", help="Execute autonomous coding loop for a single task.")
     fix_parser.add_argument("--repo", type=str, default=".", help="Target repository directory path.")
     fix_parser.add_argument("--issue", type=str, required=True, help="Task or issue description.")
     fix_parser.add_argument("--provider", type=str, default="mock", choices=["gemini", "openai", "anthropic", "ollama", "mock"], help="LLM Provider.")
@@ -37,9 +46,14 @@ def main():
 
     args = parser.parse_args()
 
-    if not args.command:
-        parser.print_help()
-        sys.exit(1)
+    # Default to interactive chat shell if no command provided
+    if not args.command or args.command == "chat":
+        repo_arg = getattr(args, "repo", ".")
+        provider_arg = getattr(args, "provider", "mock")
+        model_arg = getattr(args, "model", None)
+        shell = InteractiveShell(initial_repo=repo_arg, provider=provider_arg, model_name=model_arg)
+        shell.start()
+        sys.exit(0)
 
     if args.command == "fix":
         repo_path = Path(args.repo).resolve()
