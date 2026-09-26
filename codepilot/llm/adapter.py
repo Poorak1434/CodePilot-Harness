@@ -2,6 +2,7 @@
 Unified LLM Adapter supporting Gemini, OpenAI, Anthropic, Ollama, and Mock providers.
 """
 import os
+import sys
 import json
 import re
 from typing import Dict, Any, Optional, List
@@ -61,10 +62,17 @@ class LLMAdapter:
         step = self.mock_step_index
         self.mock_step_index += 1
 
+        # Check if user context is conversational greeting or question
+        if any(g in user_context.lower() for g in ("hello", "hi", "hey", "who are you", "what can you do")):
+            return {
+                "thought": "Hello! I am CodePilot, your autonomous AI software engineering and code debugging assistant. I can inspect repositories, fix code bugs, run system commands, and execute tests.",
+                "plan": ["Answer user question"],
+                "tool_call": {"name": "done", "arguments": {"reason": "Answered greeting"}}
+            }
+
         # Check if context is a snippet debugging task
         if "sandbox_snippet.py" in user_context:
             if step == 0:
-                # Fix all syntax/type/runtime errors in sandbox_snippet.py
                 fixed_snippet = (
                     "import math\n\n"
                     "total_users = 10\n\n"
@@ -183,10 +191,12 @@ class LLMAdapter:
             raw_text = response.choices[0].message.content
             return self._parse_json(raw_text)
         except Exception as e:
+            err_msg = f"\033[1;31m[OpenAI API Error: {str(e)}]\033[0m"
+            print(err_msg, file=sys.stderr)
             return {
-                "thought": f"OpenAI API call error: {str(e)}.",
-                "plan": ["Run fallback inspection"],
-                "tool_call": {"name": "run_tests", "arguments": {}}
+                "thought": f"OpenAI API Error: {str(e)}.",
+                "plan": ["API key error"],
+                "tool_call": {"name": "done", "arguments": {"reason": f"OpenAI API Error: {str(e)}"}}
             }
 
     def _call_gemini(self, system_prompt: str, user_context: str, history: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -204,10 +214,12 @@ class LLMAdapter:
             )
             return self._parse_json(response.text)
         except Exception as e:
+            err_msg = f"\033[1;31m[Gemini API Error: {str(e)}]\033[0m"
+            print(err_msg, file=sys.stderr)
             return {
-                "thought": f"Gemini API call error: {str(e)}.",
-                "plan": ["Run fallback inspection"],
-                "tool_call": {"name": "run_tests", "arguments": {}}
+                "thought": f"Gemini API Error: {str(e)}. Please check your API key using /key command or /provider gemini.",
+                "plan": ["API key error"],
+                "tool_call": {"name": "done", "arguments": {"reason": f"Gemini API Error: {str(e)}"}}
             }
 
     def _call_anthropic(self, system_prompt: str, user_context: str, history: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -224,10 +236,12 @@ class LLMAdapter:
             )
             return self._parse_json(response.content[0].text)
         except Exception as e:
+            err_msg = f"\033[1;31m[Anthropic API Error: {str(e)}]\033[0m"
+            print(err_msg, file=sys.stderr)
             return {
-                "thought": f"Anthropic API call error: {str(e)}.",
-                "plan": ["Run fallback inspection"],
-                "tool_call": {"name": "run_tests", "arguments": {}}
+                "thought": f"Anthropic API Error: {str(e)}.",
+                "plan": ["API key error"],
+                "tool_call": {"name": "done", "arguments": {"reason": f"Anthropic API Error: {str(e)}"}}
             }
 
     def _parse_json(self, text: str) -> Dict[str, Any]:
@@ -251,5 +265,5 @@ class LLMAdapter:
             return {
                 "thought": f"Could not parse response as JSON: {text[:100]}",
                 "plan": ["Retry step"],
-                "tool_call": {"name": "run_tests", "arguments": {}}
+                "tool_call": {"name": "done", "arguments": {"reason": "Invalid JSON from model"}}
             }

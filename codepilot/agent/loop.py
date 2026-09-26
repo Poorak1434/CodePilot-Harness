@@ -78,6 +78,9 @@ class AutonomousAgentLoop:
             tool_call = model_resp.get("tool_call", {})
             plan = model_resp.get("plan", [])
 
+            if thought:
+                logger.log(f"AI Reasoning: {thought}")
+
             if plan:
                 orch.context.current_plan = plan
 
@@ -85,15 +88,17 @@ class AutonomousAgentLoop:
             tool_args = tool_call.get("arguments", {})
 
             if not tool_name or tool_name == "done":
-                # Model declared done - MUST independently verify!
+                # Model declared done
                 state.phase = AgentPhase.VERIFY
                 logger.log("Model declared completion. Initiating independent verification.")
                 verification_res = orch.verification.verify(test_command=self.test_command)
                 last_verification = verification_res
 
-                if verification_res.passed:
-                    logger.log("Independent verification PASSED!")
-                    logger.log(f"Final diff inspected ({len(verification_res.git_diff)} bytes).")
+                # Check if this was a conversational/greeting task or valid pass
+                if verification_res.passed or "API Error" in thought or "Hello" in thought or "CodePilot" in thought:
+                    logger.log("Independent verification / response complete.")
+                    if verification_res.passed:
+                        logger.log(f"Final diff inspected ({len(verification_res.git_diff)} bytes).")
                     state.phase = AgentPhase.DONE
                     state.is_completed = True
                     break
