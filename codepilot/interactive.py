@@ -21,6 +21,7 @@ class InteractiveShell:
         self.model_name = model_name
         self.max_retries = 5
         self.test_command: Optional[str] = None
+        self.verbose = False
 
     def start(self) -> None:
         self._print_header()
@@ -201,6 +202,14 @@ class InteractiveShell:
             print(res.output)
             print("------------------------------------\n")
 
+        elif cmd in ("/quiet", "/clean"):
+            self.verbose = False
+            print("\033[1;32m[Direct Clean Output Mode Enabled]\033[0m")
+
+        elif cmd == "/verbose":
+            self.verbose = True
+            print("\033[1;32m[Verbose Telemetry Logging Enabled]\033[0m")
+
         elif cmd == "/clear":
             os.system("clear" if os.name != "nt" else "cls")
             self._print_header()
@@ -227,7 +236,7 @@ class InteractiveShell:
             model_name=self.model_name,
             max_retries=self.max_retries,
             test_command=test_cmd,
-            verbose=True
+            verbose=self.verbose
         )
 
         report = agent_loop.run(task_description=task_desc)
@@ -236,7 +245,7 @@ class InteractiveShell:
         if snippet_file.exists():
             fixed_code = snippet_file.read_text(encoding="utf-8")
             print("\n\033[1;32m" + "=" * 70)
-            print("✨ FINAL CORRECTED CODE OUTPUT:")
+            print("✨ OUTPUT:")
             print("=" * 70 + "\033[0m")
             print(fixed_code)
             print("\033[1;32m" + "=" * 70 + "\033[0m\n")
@@ -244,13 +253,15 @@ class InteractiveShell:
     def _run_task(self, issue_description: str) -> None:
         # Check if user input is raw code (contains def/class/function/import or multi-line code)
         if ("def " in issue_description or "class " in issue_description or "import " in issue_description or "\n" in issue_description) and not issue_description.startswith("Fix "):
-            print("\033[1;33m[Detected raw code input. Processing code snippet debug & fix...]\033[0m")
+            if self.verbose:
+                print("\033[1;33m[Detected raw code input. Processing code snippet debug & fix...]\033[0m")
             self._run_snippet_task(issue_description)
             return
 
-        print("\n" + "=" * 70)
-        print(f"▶ EXECUTING TASK: {issue_description}")
-        print("=" * 70)
+        if self.verbose:
+            print("\n" + "=" * 70)
+            print(f"▶ EXECUTING TASK: {issue_description}")
+            print("=" * 70)
 
         agent_loop = AutonomousAgentLoop(
             workspace_root=str(self.repo_path),
@@ -258,34 +269,42 @@ class InteractiveShell:
             model_name=self.model_name,
             max_retries=self.max_retries,
             test_command=self.test_command,
-            verbose=True
+            verbose=self.verbose
         )
 
         report = agent_loop.run(task_description=issue_description)
 
-        print("\n" + "=" * 70)
-        print("📊 TASK RESULT SUMMARY")
-        print("=" * 70)
-        status_colored = f"\033[1;32m{report['status']}\033[0m" if report["status"] == "VERIFIED_SUCCESS" else f"\033[1;31m{report['status']}\033[0m"
-        print(f" • Status           : {status_colored}")
-        metrics = report["telemetry"]
-        print(f" • Runtime          : {metrics['runtime_seconds']}s")
-        print(f" • Model Calls      : {metrics['model_calls']}")
-        print(f" • Token Usage      : {metrics.get('prompt_tokens', 0)} prompt / {metrics.get('completion_tokens', 0)} comp ({metrics.get('total_tokens', 0)} total)")
-        print(f" • Tool Invocations : {metrics['tool_calls']}")
-        print(f" • Retries / Fixes  : {metrics['retry_count']}")
-        print(f" • Modified Files   : {', '.join(report['verification']['files_modified']) or 'None'}")
-        
-        # Display the modified file contents directly if files were changed!
-        if report['verification']['files_modified']:
-            print("\n\033[1;32m" + "-" * 70)
-            print("✨ FINAL CORRECTED FILE CODE OUTPUT:")
-            print("-" * 70 + "\033[0m")
-            for mod_f in report['verification']['files_modified']:
+        if self.verbose:
+            print("\n" + "=" * 70)
+            print("📊 TASK RESULT SUMMARY")
+            print("=" * 70)
+            status_colored = f"\033[1;32m{report['status']}\033[0m" if report["status"] == "VERIFIED_SUCCESS" else f"\033[1;31m{report['status']}\033[0m"
+            print(f" • Status           : {status_colored}")
+            metrics = report["telemetry"]
+            print(f" • Runtime          : {metrics['runtime_seconds']}s")
+            print(f" • Model Calls      : {metrics['model_calls']}")
+            print(f" • Token Usage      : {metrics.get('prompt_tokens', 0)} prompt / {metrics.get('completion_tokens', 0)} comp ({metrics.get('total_tokens', 0)} total)")
+            print(f" • Tool Invocations : {metrics['tool_calls']}")
+            print(f" • Retries / Fixes  : {metrics['retry_count']}")
+            print(f" • Modified Files   : {', '.join(report['verification']['files_modified']) or 'None'}")
+            print("=" * 70 + "\n")
+
+        # Direct Output Mode (Clean output display)
+        files_mod = report['verification']['files_modified']
+        if files_mod:
+            for mod_f in files_mod:
                 mod_path = self.repo_path / mod_f
                 if mod_path.is_file():
-                    print(f"\033[1;34m[File: {mod_f}]\033[0m")
+                    print("\n\033[1;32m" + "=" * 70)
+                    print(f"✨ OUTPUT ({mod_f}):")
+                    print("=" * 70 + "\033[0m")
                     print(mod_path.read_text(encoding="utf-8", errors="replace"))
-            print("\033[1;32m" + "-" * 70 + "\033[0m")
-
-        print("=" * 70 + "\n")
+                    print("\033[1;32m" + "=" * 70 + "\033[0m\n")
+        else:
+            thought_text = report.get("last_thought", "")
+            if thought_text:
+                print("\n\033[1;32m" + "=" * 70)
+                print("✨ OUTPUT:")
+                print("=" * 70 + "\033[0m")
+                print(thought_text)
+                print("\033[1;32m" + "=" * 70 + "\033[0m\n")

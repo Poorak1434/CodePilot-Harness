@@ -182,6 +182,7 @@ class AutonomousAgentLoop:
             is_completed=state.is_completed
         )
 
+        report["last_thought"] = thought
         EvidenceReporter.save_report(report, output_directory=str(orch.safety.workspace_root))
         logger.log("Evidence report generated and saved (EVIDENCE_REPORT.json & EVIDENCE_REPORT.md).")
 
