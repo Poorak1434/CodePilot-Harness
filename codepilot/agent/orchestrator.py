@@ -29,7 +29,8 @@ from codepilot.tools.agent_tools import (
     RunCodeQualityTool,
     GenerateArchitectureDocsTool,
     GenerateDemoVideoTool,
-    RunMultiAgentWorkflowTool
+    RunMultiAgentWorkflowTool,
+    ExecuteOpenHarnessDshTool
 )
 
 
@@ -70,7 +71,8 @@ class AgentOrchestrator:
             RunCodeQualityTool(self),
             GenerateArchitectureDocsTool(self),
             GenerateDemoVideoTool(self),
-            RunMultiAgentWorkflowTool(self)
+            RunMultiAgentWorkflowTool(self),
+            ExecuteOpenHarnessDshTool(self.workspace_root)
         ]
         for t in agent_tools:
             self.tools.register_tool(t)

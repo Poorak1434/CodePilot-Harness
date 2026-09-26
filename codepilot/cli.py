@@ -104,7 +104,76 @@ def main():
     doctor_parser.add_argument("--provider", type=str, default=None, help="LLM Provider.")
     doctor_parser.add_argument("--model", type=str, default=None, help="Specific model name.")
 
+    # `openharness` subcommand
+    oh_parser = subparsers.add_parser("openharness", help="Autonomous OpenHarness bridge & domain-specific harnesses.")
+    oh_subparsers = oh_parser.add_subparsers(dest="oh_command", help="OpenHarness actions")
+
+    # `openharness serve`
+    oh_serve = oh_subparsers.add_parser("serve", help="Start OpenHarness Autonomous Machine Provider server.")
+    oh_serve.add_argument("--repo", type=str, default=".", help="Target workspace path.")
+    oh_serve.add_argument("--port", type=int, default=4319, help="Provider HTTP port (default: 4319).")
+    oh_serve.add_argument("--token", type=str, default=None, help="Optional Bearer authentication token.")
+
+    # `openharness list`
+    oh_list = oh_subparsers.add_parser("list", help="List all OpenHarness agents and available Domain-Specific Harnesses (DSH).")
+    oh_list.add_argument("--repo", type=str, default=".", help="Target workspace path.")
+
+    # `openharness dsh`
+    oh_dsh = oh_subparsers.add_parser("dsh", help="Execute an OpenHarness Domain-Specific Harness task.")
+    oh_dsh.add_argument("domain", type=str, choices=["blender", "circuitjs", "mujoco", "music-studio", "data-studio"], help="Target domain harness.")
+    oh_dsh.add_argument("prompt", type=str, help="Instruction or design prompt for the harness.")
+    oh_dsh.add_argument("--repo", type=str, default=".", help="Target workspace path.")
+
     args = parser.parse_args()
+
+    if args.command == "openharness":
+        from codepilot.openharness import (
+            start_openharness_provider_server,
+            OpenHarnessStore,
+            DSHRegistry,
+        )
+        repo_arg = getattr(args, "repo", ".")
+
+        if args.oh_command == "serve":
+            port = getattr(args, "port", 4319)
+            token = getattr(args, "token", None)
+            start_openharness_provider_server(workspace_root=repo_arg, port=port, auth_token=token, blocking=True)
+            sys.exit(0)
+
+        elif args.oh_command == "dsh":
+            registry = DSHRegistry(workspace_root=repo_arg)
+            domain = args.domain
+            prompt = args.prompt
+            print(f"\n[🚀 OpenHarness DSH Executing: {domain}]")
+            print(f"Prompt: {prompt}\n")
+            res = registry.execute_harness(domain, prompt)
+            print(f"Status: {res.get('status')}")
+            print(f"Summary: {res.get('summary')}")
+            print("Generated Artifacts:")
+            for k, v in res.get("artifacts", {}).items():
+                print(f" • {k}: {v}")
+            sys.exit(0 if res.get("status") == "SUCCESS" else 1)
+
+        else:
+            # Default: list
+            store = OpenHarnessStore(workspace_root=repo_arg)
+            print("\n" + "=" * 70)
+            print("🌐 OPENHARNESS AGENT ROSTER (Autonomous Machine Provider Protocol)")
+            print("=" * 70)
+            for a in store.list_agents():
+                print(f"• ID: {a.id:<25} | Name: {a.name}")
+                if a.description:
+                    print(f"  Description: {a.description}")
+
+            print("\n" + "=" * 70)
+            print("🎨 OPENHARNESS DOMAIN-SPECIFIC HARNESSES (DSH)")
+            print("=" * 70)
+            for d in store.dsh_registry.list_all():
+                print(f"• [{d.category.upper()}] {d.name} ({d.id})")
+                print(f"  {d.tagline}")
+                print(f"  Artifacts: {', '.join(d.artifact_extensions)} | Viewer: {d.default_viewer}")
+            print("=" * 70 + "\n")
+            sys.exit(0)
 
     if args.command == "doctor":
         from codepilot.llm.doctor import CodePilotDoctor

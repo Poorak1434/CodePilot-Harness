@@ -201,6 +201,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 <button class="btn-agent-action" onclick="runAgentPrompt('Generate a complete project showcase demo video for hackathon judges.')">🎬 Demo Video</button>
                 <button class="btn-agent-action" onclick="runAgentPrompt('Execute full multi-agent workflow: audit security, check code quality, generate architecture documentation, and compile demo video.')">⚡ Workflow</button>
                 <button class="btn-agent-action" onclick="promptPasteCode()">📋 Paste Code</button>
+                <button class="btn-agent-action" onclick="runAgentPrompt('OpenHarness DSH: Build a 3D procedural object with Blender Shape Lab controls and render scene.')">🎨 3D Blender</button>
+                <button class="btn-agent-action" onclick="runAgentPrompt('OpenHarness DSH: Simulate an analog RC active filter in CircuitJS and export schematic netlist.')">⚡ CircuitJS</button>
+                <button class="btn-agent-action" onclick="runAgentPrompt('OpenHarness DSH: Model a 3-DOF articulated robotic arm kinematics in MuJoCo MJCF XML format.')">🤖 MuJoCo</button>
+                <button class="btn-agent-action" onclick="runAgentPrompt('OpenHarness DSH: Synthesize an algorithmic A minor synth arpeggio waveform audio track in WAV format.')">🎵 Audio Studio</button>
             </div>
 
             <div class="chat-trajectory" id="chatTrajectory">
@@ -550,6 +554,16 @@ class CodePilotGUIHandler(BaseHTTPRequestHandler):
             res = status_tool.execute()
             self._send_json({"output": res.output})
 
+        elif parsed.path == "/api/openharness/agents":
+            from codepilot.openharness.provider import OpenHarnessStore
+            store = OpenHarnessStore(workspace_root=self.repo_path)
+            self._send_json({"agents": [a.to_dict() for a in store.list_agents()]})
+
+        elif parsed.path == "/api/openharness/dsh":
+            from codepilot.openharness.dsh import DSHRegistry
+            reg = DSHRegistry(workspace_root=self.repo_path)
+            self._send_json({"harnesses": [h.to_dict() for h in reg.list_all()]})
+
         else:
             self.send_error(404, "Not Found")
 
@@ -640,6 +654,14 @@ class CodePilotGUIHandler(BaseHTTPRequestHandler):
                 self._send_json({"success": True, "target_path": str(target_dir.resolve())})
             else:
                 self._send_json({"success": False, "error": "Git clone failed"})
+
+        elif parsed.path == "/api/openharness/dsh":
+            from codepilot.openharness.dsh import DSHRegistry
+            domain = payload.get("domain", "blender")
+            prompt = payload.get("prompt", "")
+            reg = DSHRegistry(workspace_root=self.repo_path)
+            res = reg.execute_harness(domain, prompt)
+            self._send_json(res)
 
         else:
             self.send_error(404, "Endpoint not found")

@@ -221,3 +221,42 @@ class RunMultiAgentWorkflowTool(BaseTool):
             output="\n".join(output_lines),
             metadata={"agent_results": {k: v.to_dict() for k, v in results.items()}}
         )
+
+
+class ExecuteOpenHarnessDshTool(BaseTool):
+    name = "execute_openharness_dsh"
+    description = (
+        "Executes an OpenHarness Domain-Specific Harness (DSH) task beyond standard code: "
+        "3D Blender modeling (.glb/.obj), CircuitJS simulation & netlists, MuJoCo robotics kinematics (.xml), "
+        "or algorithmic audio synthesis (.wav)."
+    )
+    parameters_schema = {
+        "type": "object",
+        "properties": {
+            "domain": {
+                "type": "string",
+                "enum": ["blender", "circuitjs", "mujoco", "music-studio", "data-studio"],
+                "description": "The specific OpenHarness domain harness to execute."
+            },
+            "prompt": {
+                "type": "string",
+                "description": "Natural language prompt describing what to build or simulate."
+            }
+        },
+        "required": ["domain", "prompt"]
+    }
+
+    def __init__(self, workspace_root: str = "."):
+        from codepilot.openharness.dsh import DSHRegistry
+        self.registry = DSHRegistry(workspace_root)
+
+    def execute(self, domain: str, prompt: str, **kwargs: Any) -> ToolResult:
+        res = self.registry.execute_harness(domain, prompt)
+        if res.get("status") == "SUCCESS":
+            return ToolResult(
+                success=True,
+                output=f"[OpenHarness DSH: {domain}]\nSummary: {res.get('summary')}\nArtifacts: {res.get('artifacts')}",
+                metadata=res
+            )
+        return ToolResult(success=False, output="", error=res.get("error", "DSH execution failed"))
+
