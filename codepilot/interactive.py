@@ -1,6 +1,6 @@
 """
 Interactive Chat & REPL mode for CodePilot Harness.
-Supports repository tasks, direct code snippet pasting & debugging, and graceful interrupt handling.
+Supports repository tasks, direct code snippet pasting & debugging, system commands, and live API key management.
 """
 import sys
 import os
@@ -64,7 +64,6 @@ class InteractiveShell:
         stripped = text.strip()
         fragments = ("else:", "elif ", "return ", "def ", "class ", "if __name__", "main()", "print(", "greeting =", "active_users =")
         if stripped in ("else:", "main()", "pass") or (len(stripped) < 40 and any(stripped.startswith(f) for f in fragments)):
-            # If it doesn't contain a full sentence or issue task keyword
             if not any(k in stripped.lower() for k in ("fix", "bug", "issue", "create", "add", "update", "test")):
                 return True
         return False
@@ -90,7 +89,7 @@ class InteractiveShell:
         print("\033[1;36m" + "=" * 70 + "\033[0m")
         print(f" • Target Repository : \033[1;32m{self.repo_path}\033[0m")
         print(f" • Model Provider   : \033[1;32m{self.provider}\033[0m")
-        print(f" • Slash Commands   : \033[1;33m/paste, /repo <path>, /provider <name>, /verify, /diff, /status, /help, /exit\033[0m")
+        print(f" • Slash Commands   : \033[1;33m/paste, /repo <path>, /provider <name>, /key <api_key>, /verify, /diff, /status, /help, /exit\033[0m")
         print("\033[1;36m" + "=" * 70 + "\033[0m\n")
 
     def _handle_slash_command(self, cmd_line: str) -> bool:
@@ -107,6 +106,7 @@ class InteractiveShell:
             print("  /paste            - Paste multi-line code snippet for quick debugging & fix")
             print("  /repo <path>      - Set active repository directory")
             print("  /provider <name>  - Set model provider (gemini, openai, anthropic, mock)")
+            print("  /key <api_key>    - Set API Key for current model provider")
             print("  /test-cmd <cmd>   - Set custom test command (e.g. pytest or python3 -m unittest)")
             print("  /verify           - Run independent verification checks on repo")
             print("  /diff             - Show current uncommitted git diff")
@@ -118,6 +118,13 @@ class InteractiveShell:
             code_text = self._read_multiline_block()
             if code_text.strip():
                 self._run_snippet_task(code_text)
+
+        elif cmd == "/key":
+            if not arg:
+                print(f"Current API key for {self.provider}: {'[SET]' if os.getenv(f'{self.provider.upper()}_API_KEY') else '[NOT SET]'}")
+            else:
+                os.environ[f"{self.provider.upper()}_API_KEY"] = arg
+                print(f"\033[1;32mAPI Key updated for {self.provider.upper()}.\033[0m")
 
         elif cmd == "/repo":
             if not arg:
@@ -137,6 +144,12 @@ class InteractiveShell:
                 p_lower = arg.lower()
                 if p_lower in ("gemini", "openai", "anthropic", "ollama", "mock"):
                     self.provider = p_lower
+                    env_var = f"{self.provider.upper()}_API_KEY"
+                    if p_lower != "mock" and not os.getenv(env_var):
+                        print(f"\033[1;33mNote: {env_var} is not set in environment.\033[0m")
+                        key_input = input(f"Enter {self.provider.upper()} API Key (or press Enter to skip): ").strip()
+                        if key_input:
+                            os.environ[env_var] = key_input
                     print(f"\033[1;32mProvider updated to: {self.provider}\033[0m")
                 else:
                     print("\033[1;31mInvalid provider. Choose from: gemini, openai, anthropic, ollama, mock\033[0m")
@@ -190,10 +203,21 @@ class InteractiveShell:
         snippet_file = self.repo_path / "sandbox_snippet.py"
         snippet_file.write_text(clean_code, encoding="utf-8")
 
+        test_cmd = self.test_command or "python3 sandbox_snippet.py"
         task_desc = f"Fix and debug the code snippet in sandbox_snippet.py: {clean_code[:100]}"
-        self._run_task(task_desc)
 
-        # After task completes, output the fixed final code snippet
+        agent_loop = AutonomousAgentLoop(
+            workspace_root=str(self.repo_path),
+            provider=self.provider,
+            model_name=self.model_name,
+            max_retries=self.max_retries,
+            test_command=test_cmd,
+            verbose=True
+        )
+
+        report = agent_loop.run(task_description=task_desc)
+
+        # Output the fixed final code snippet directly in terminal!
         if snippet_file.exists():
             fixed_code = snippet_file.read_text(encoding="utf-8")
             print("\n\033[1;32m" + "=" * 70)
