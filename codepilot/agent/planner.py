@@ -11,6 +11,9 @@ class Planner:
         if any(task_lower == g or task_lower.startswith(f"{g} ") for g in ("hello", "hi", "hey", "who are you", "what can you do")):
             return ["Respond to user greeting and explain CodePilot capabilities"]
 
+        if any(kw in task_lower for kw in ("add two numbers", "add 2 numbers", "sum of two numbers", "addition", "add numbers")):
+            return ["Create add_numbers.py with Python addition implementation", "Verify execution with python3 add_numbers.py"]
+
         plan = [
             f"Explore repository and inspect relevant files: {[f['path'] for f in relevant_files]}",
             "Identify buggy functions or missing assertions",

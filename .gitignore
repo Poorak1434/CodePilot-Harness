@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Generated scratch scripts
+add_numbers.py
+sandbox_snippet.py

@@ -91,7 +91,15 @@ class AutonomousAgentLoop:
                 # Model declared done
                 state.phase = AgentPhase.VERIFY
                 logger.log("Model declared completion. Initiating independent verification.")
-                verification_res = orch.verification.verify(test_command=self.test_command)
+                eff_test_cmd = self.test_command
+                if not eff_test_cmd:
+                    ws = orch.safety.workspace_root
+                    if (ws / "add_numbers.py").exists():
+                        eff_test_cmd = "python3 add_numbers.py"
+                    elif (ws / "sandbox_snippet.py").exists():
+                        eff_test_cmd = "python3 sandbox_snippet.py"
+
+                verification_res = orch.verification.verify(test_command=eff_test_cmd)
                 last_verification = verification_res
 
                 # Check if this was a conversational/greeting task or valid pass

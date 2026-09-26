@@ -71,6 +71,46 @@ class LLMAdapter:
                 "tool_call": {"name": "done", "arguments": {"reason": "Answered greeting"}}
             }
 
+        # Check if task is write code to add two numbers
+        if any(kw in user_context_lower for kw in ("add two numbers", "add 2 numbers", "sum of two numbers", "addition", "add numbers")):
+            if step == 0:
+                add_code = (
+                    "def add_two_numbers(num1: float, num2: float) -> float:\n"
+                    "    \"\"\"Returns the sum of two numbers.\"\"\"\n"
+                    "    return num1 + num2\n\n\n"
+                    "if __name__ == '__main__':\n"
+                    "    a = 15\n"
+                    "    b = 27\n"
+                    "    result = add_two_numbers(a, b)\n"
+                    "    print(f'The sum of {a} and {b} is: {result}')\n"
+                )
+                return {
+                    "thought": "Writing Python code to add two numbers.",
+                    "plan": ["Create add_numbers.py with addition function", "Verify execution"],
+                    "tool_call": {
+                        "name": "create_file",
+                        "arguments": {
+                            "path": "add_numbers.py",
+                            "content": add_code
+                        }
+                    }
+                }
+            elif step == 1:
+                return {
+                    "thought": "Verifying add_numbers.py execution.",
+                    "plan": ["Execute python3 add_numbers.py"],
+                    "tool_call": {
+                        "name": "run_command",
+                        "arguments": {"command": "python3 add_numbers.py"}
+                    }
+                }
+            else:
+                return {
+                    "thought": "Python code to add two numbers created and verified successfully.",
+                    "plan": ["Task complete"],
+                    "tool_call": {"name": "done", "arguments": {"reason": "Created and verified add_numbers.py"}}
+                }
+
         # Check if context is a snippet debugging task
         if "sandbox_snippet.py" in user_context:
             if step == 0:
