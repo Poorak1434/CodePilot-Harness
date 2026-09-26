@@ -44,59 +44,59 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif; }
-        body { background: var(--bg-window); color: var(--text-main); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        html, body { height: 100vh; width: 100vw; overflow: hidden; background: var(--bg-window); color: var(--text-main); display: flex; flex-direction: column; margin: 0; padding: 0; }
 
         /* Window Header Bar */
-        .window-header { height: 35px; background: #181818; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 0.8rem; color: var(--text-sub); user-select: none; }
+        .window-header { height: 35px; min-height: 35px; max-height: 35px; background: #181818; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 0.8rem; color: var(--text-sub); user-select: none; flex-shrink: 0; }
         .window-title { flex: 1; text-align: center; font-weight: 500; color: #d4d4d4; }
         .status-pill { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); padding: 3px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 600; border: 1px solid rgba(16, 185, 129, 0.3); }
 
         /* Main IDE Layout: Left Explorer (250px) | Middle Editor & Terminal (1fr) | Right Agent Chat (380px) */
-        .ide-container { display: grid; grid-template-columns: 250px 1fr 380px; flex: 1; overflow: hidden; }
+        .ide-container { display: grid; grid-template-columns: 250px 1fr 380px; height: calc(100vh - 35px); max-height: calc(100vh - 35px); min-height: 0; overflow: hidden; flex: 1; }
 
         /* Left Column: Explorer */
-        .explorer-panel { background: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; font-size: 0.83rem; }
-        .panel-header { padding: 10px 16px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-sub); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.03); }
-        .repo-title { font-weight: 600; color: #e1e1e1; padding: 8px 16px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--border-color); }
+        .explorer-panel { background: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; font-size: 0.83rem; height: 100%; min-height: 0; overflow: hidden; }
+        .panel-header { padding: 10px 16px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-sub); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.03); flex-shrink: 0; }
+        .repo-title { font-weight: 600; color: #e1e1e1; padding: 8px 16px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
         
-        .file-tree { flex: 1; overflow-y: auto; padding: 8px 0; font-family: 'Fira Code', monospace; font-size: 0.8rem; }
+        .file-tree { flex: 1 1 0%; min-height: 0; overflow-y: auto; padding: 8px 0; font-family: 'Fira Code', monospace; font-size: 0.8rem; }
         .tree-item { padding: 5px 16px; display: flex; align-items: center; gap: 8px; cursor: pointer; color: #cccccc; text-decoration: none; border-left: 2px solid transparent; }
         .tree-item:hover { background: #2a2d2e; }
         .tree-item.active { background: #37373d; color: #ffffff; border-left-color: var(--accent-blue); }
         
-        .clone-box { padding: 12px; border-top: 1px solid var(--border-color); background: #141414; display: flex; flex-direction: column; gap: 8px; }
-        .clone-box input { background: #252526; border: 1px solid #3c3c3c; border-radius: 4px; padding: 6px 10px; color: #fff; font-size: 0.78rem; outline: none; }
-        .btn-clone { background: var(--accent-blue); border: none; border-radius: 4px; color: #fff; font-weight: 600; padding: 6px; font-size: 0.78rem; cursor: pointer; }
+        .clone-box { padding: 12px; border-top: 1px solid var(--border-color); background: #141414; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; margin-top: auto; }
+        .clone-box input { background: #252526; border: 1px solid #3c3c3c; border-radius: 4px; padding: 8px 10px; color: #fff; font-size: 0.8rem; outline: none; }
+        .btn-clone { background: var(--accent-blue); border: none; border-radius: 4px; color: #fff; font-weight: 600; padding: 8px; font-size: 0.8rem; cursor: pointer; }
 
         /* Middle Column: Code Editor & Bottom Terminal */
-        .editor-container { display: flex; flex-direction: column; border-right: 1px solid var(--border-color); background: var(--bg-editor); }
+        .editor-container { display: flex; flex-direction: column; border-right: 1px solid var(--border-color); background: var(--bg-editor); height: 100%; min-height: 0; overflow: hidden; }
         
         /* Tabs Bar */
-        .tab-bar { height: 35px; background: #252526; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; overflow-x: auto; }
+        .tab-bar { height: 35px; min-height: 35px; max-height: 35px; flex-shrink: 0; background: #252526; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; overflow-x: auto; }
         .tab-item { height: 35px; padding: 0 16px; display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: #969696; background: #2d2d2d; border-right: 1px solid var(--border-color); cursor: pointer; }
         .tab-item.active { background: #1e1e1e; color: #ffffff; border-top: 2px solid var(--accent-blue); }
 
         /* Code Editor View */
-        .editor-workspace { flex: 1; display: flex; overflow: hidden; background: #1e1e1e; position: relative; }
-        .line-numbers { padding: 12px 10px; background: #1e1e1e; color: #5a5a5a; font-family: 'Fira Code', monospace; font-size: 0.82rem; text-align: right; user-select: none; border-right: 1px solid rgba(255,255,255,0.03); }
+        .editor-workspace { flex: 1 1 0%; min-height: 0; display: flex; overflow: hidden; background: #1e1e1e; position: relative; }
+        .line-numbers { padding: 12px 10px; background: #1e1e1e; color: #5a5a5a; font-family: 'Fira Code', monospace; font-size: 0.82rem; text-align: right; user-select: none; border-right: 1px solid rgba(255,255,255,0.03); overflow: hidden; }
         .code-area { flex: 1; padding: 12px; font-family: 'Fira Code', monospace; font-size: 0.85rem; line-height: 1.5; color: #d4d4d4; overflow: auto; outline: none; white-space: pre; border: none; background: transparent; resize: none; }
 
         /* Integrated Terminal Panel */
-        .terminal-panel { height: 220px; background: var(--bg-terminal); border-top: 1px solid var(--border-color); display: flex; flex-direction: column; }
-        .terminal-header { height: 32px; padding: 0 16px; background: #252526; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 16px; font-size: 0.78rem; color: #969696; }
+        .terminal-panel { height: 180px; min-height: 120px; flex-shrink: 0; background: var(--bg-terminal); border-top: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .terminal-header { height: 32px; min-height: 32px; flex-shrink: 0; padding: 0 16px; background: #252526; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; gap: 16px; font-size: 0.78rem; color: #969696; }
         .term-tab { cursor: pointer; padding: 4px 8px; }
         .term-tab.active { color: #ffffff; font-weight: 600; border-bottom: 2px solid var(--accent-blue); }
 
-        .terminal-body { flex: 1; padding: 12px 16px; font-family: 'Fira Code', monospace; font-size: 0.82rem; line-height: 1.5; overflow-y: auto; color: #cccccc; background: #181818; }
+        .terminal-body { flex: 1 1 0%; min-height: 0; padding: 12px 16px; font-family: 'Fira Code', monospace; font-size: 0.82rem; line-height: 1.5; overflow-y: auto; color: #cccccc; background: #181818; }
         .term-line { margin-bottom: 4px; word-break: break-all; }
         .term-cmd { color: var(--accent-cyan); font-weight: 600; }
         .term-success { color: var(--accent-green); }
 
         /* Right Column: Antigravity Agent Chat Sidebar */
-        .agent-sidebar { background: var(--bg-chat); display: flex; flex-direction: column; position: relative; overflow: hidden; min-height: 0; height: 100%; }
+        .agent-sidebar { background: var(--bg-chat); display: flex; flex-direction: column; position: relative; overflow: hidden; height: 100%; min-height: 0; }
         .agent-header { padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-weight: 600; font-size: 0.88rem; color: #ffffff; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
 
-        .chat-trajectory { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+        .chat-trajectory { flex: 1 1 0%; min-height: 0; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
         .chat-card { background: #252526; border: 1px solid #3c3c3c; border-radius: 8px; padding: 12px 14px; font-size: 0.84rem; line-height: 1.6; }
         .user-prompt-card { background: rgba(0, 122, 204, 0.15); border-color: rgba(0, 122, 204, 0.4); color: #ffffff; font-weight: 500; }
         .agent-thought-card { background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); color: #fbbf24; }
@@ -108,7 +108,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .agent-input-box { flex: 1; background: transparent; border: none; outline: none; color: #ffffff; font-size: 0.85rem; }
         
         .agent-controls-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-        .provider-select-mini { background: #252526; border: 1px solid #3c3c3c; color: #cccccc; border-radius: 6px; padding: 4px 8px; font-size: 0.75rem; outline: none; }
+        .provider-select-mini { background: #252526; border: 1px solid #3c3c3c; color: #cccccc; border-radius: 6px; padding: 6px 8px; font-size: 0.75rem; outline: none; }
         .key-input-mini { background: #252526; border: 1px solid #3c3c3c; color: #ffffff; border-radius: 6px; padding: 4px 8px; font-size: 0.75rem; width: 130px; outline: none; }
         .btn-send { background: var(--accent-blue); border: none; border-radius: 6px; color: #fff; font-weight: 700; padding: 6px 14px; font-size: 0.8rem; cursor: pointer; }
     </style>
