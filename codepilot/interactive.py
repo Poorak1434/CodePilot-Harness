@@ -291,8 +291,11 @@ class InteractiveShell:
 
         # Direct Output Mode (Clean output display)
         files_mod = report['verification']['files_modified']
-        if files_mod:
-            for mod_f in files_mod:
+        valid_exts = (".py", ".cpp", ".c", ".h", ".hpp", ".js", ".ts", ".java", ".json", ".md", ".html", ".css", ".txt")
+        source_files = [f for f in files_mod if any(f.endswith(ext) for ext in valid_exts)]
+
+        if source_files:
+            for mod_f in source_files:
                 mod_path = self.repo_path / mod_f
                 if mod_path.is_file():
                     print("\n\033[1;32m" + "=" * 70)

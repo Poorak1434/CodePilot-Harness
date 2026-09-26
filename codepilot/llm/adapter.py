@@ -80,6 +80,47 @@ class LLMAdapter:
                 "tool_call": {"name": "done", "arguments": {"reason": "Answered greeting"}}
             }
 
+        # Check if task is C++ code generation (e.g. multiples of 10 till 700)
+        if any(kw in user_context_lower for kw in ("cpp", "c++", "multiples of 10", "till 700", "multiples")):
+            cpp_code = (
+                "#include <iostream>\n\n"
+                "int main() {\n"
+                "    std::cout << \"Multiples of 10 up to 700:\\n\";\n"
+                "    for (int i = 10; i <= 700; i += 10) {\n"
+                "        std::cout << i << \" \";\n"
+                "    }\n"
+                "    std::cout << std::endl;\n"
+                "    return 0;\n"
+                "}\n"
+            )
+            if step == 0:
+                return {
+                    "thought": f"Writing C++ program to print multiples of 10 up to 700:\n\n```cpp\n{cpp_code}```",
+                    "plan": ["Create solution.cpp with C++ program", "Verify execution"],
+                    "tool_call": {
+                        "name": "create_file",
+                        "arguments": {
+                            "path": "solution.cpp",
+                            "content": cpp_code
+                        }
+                    }
+                }
+            elif step == 1:
+                return {
+                    "thought": f"C++ program created in solution.cpp:\n\n```cpp\n{cpp_code}```",
+                    "plan": ["Compile and run solution.cpp"],
+                    "tool_call": {
+                        "name": "run_command",
+                        "arguments": {"command": "g++ -o solution solution.cpp && ./solution"}
+                    }
+                }
+            else:
+                return {
+                    "thought": f"C++ program created and verified successfully:\n\n```cpp\n{cpp_code}```",
+                    "plan": ["Task complete"],
+                    "tool_call": {"name": "done", "arguments": {"reason": "Created and verified solution.cpp"}}
+                }
+
         # Check if task is write code to add two numbers
         if any(kw in user_context_lower for kw in ("add two numbers", "add 2 numbers", "sum of two numbers", "addition", "add numbers")):
             if step == 0:

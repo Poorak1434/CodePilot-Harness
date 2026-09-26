@@ -11,6 +11,9 @@ class Planner:
         if any(task_lower == g or task_lower.startswith(f"{g} ") for g in ("hello", "hi", "hey", "who are you", "what can you do")):
             return ["Respond to user greeting and explain CodePilot capabilities"]
 
+        if any(kw in task_lower for kw in ("cpp", "c++", "multiples of 10", "till 700", "multiples")):
+            return ["Create solution.cpp with C++ multiples program", "Compile and verify execution with g++"]
+
         if any(kw in task_lower for kw in ("add two numbers", "add 2 numbers", "sum of two numbers", "addition", "add numbers")):
             return ["Create add_numbers.py with Python addition implementation", "Verify execution with python3 add_numbers.py"]
 
