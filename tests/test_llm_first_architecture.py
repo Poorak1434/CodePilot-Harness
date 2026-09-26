@@ -142,6 +142,14 @@ class TestLLMFirstArchitecture(unittest.TestCase):
                 if old_env:
                     os.environ["GROQ_API_KEY"] = old_env
 
+    def test_8_on_device_slm_mode(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            loop = AutonomousAgentLoop(workspace_root=tmpdir, provider="on_device", verbose=False)
+            report = loop.run("hi")
+            self.assertEqual(report["status"], "SUCCESS")
+            self.assertTrue(report.get("is_conversational"))
+            self.assertIn("On-Device", report["last_thought"])
+
 
 if __name__ == "__main__":
     unittest.main()

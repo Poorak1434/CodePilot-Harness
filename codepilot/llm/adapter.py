@@ -47,10 +47,12 @@ class LLMAdapter:
             "openai": "gpt-4o-mini",
             "anthropic": "claude-3-5-sonnet-20241022",
             "groq": "llama-3.3-70b-versatile",
-            "ollama": "llama3",
+            "ollama": "llama3.2:3b",
+            "on_device": "slm-3b-local",
+            "slm": "slm-3b-local",
             "mock": "mock-llm-v1"
         }
-        return defaults.get(provider.lower(), "llama-3.3-70b-versatile")
+        return defaults.get(provider.lower(), "slm-3b-local")
 
     def set_mock_script(self, script: List[Dict[str, Any]]) -> None:
         """Configures replay sequence for deterministic mock provider during automated testing."""
@@ -69,7 +71,9 @@ class LLMAdapter:
         full_prompt = f"{system_prompt}\n{user_context}"
         self.last_prompt_tokens = max(1, len(full_prompt) // 4)
 
-        if self.provider == "groq":
+        if self.provider in ("on_device", "slm"):
+            resp = self._call_on_device_slm(system_prompt, user_context, history)
+        elif self.provider == "groq":
             resp = self._call_groq(system_prompt, user_context, history)
         elif self.provider == "openai":
             resp = self._call_openai(system_prompt, user_context, history)
@@ -84,7 +88,7 @@ class LLMAdapter:
         else:
             resp = {
                 "_api_error": True,
-                "thought": f"Unsupported LLM provider '{self.provider}'. Available providers: groq, gemini, openai, anthropic, ollama, mock.",
+                "thought": f"Unsupported LLM provider '{self.provider}'. Available providers: on_device, slm, groq, gemini, openai, anthropic, ollama, mock.",
                 "plan": [],
                 "tool_call": None
             }
@@ -92,6 +96,38 @@ class LLMAdapter:
         resp_str = str(resp)
         self.last_completion_tokens = max(1, len(resp_str) // 4)
         return resp
+
+    def _call_on_device_slm(self, system_prompt: str, user_context: str, history: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Executes 100% locally on-device using local SLM model engine.
+        Does not require external API keys or cloud server connections.
+        """
+        try:
+            import urllib.request
+            url = "http://localhost:11434/api/chat"
+            messages = [{"role": "system", "content": system_prompt}]
+            for h in history[-10:]:
+                messages.append({"role": h.get("role", "user"), "content": h.get("content", "")})
+            messages.append({"role": "user", "content": user_context})
+
+            payload = json.dumps({
+                "model": self.model_name or "llama3.2:3b",
+                "messages": messages,
+                "stream": False,
+                "format": "json"
+            }).encode("utf-8")
+
+            req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                text = data.get("message", {}).get("content", "")
+                return self._parse_json(text)
+        except Exception:
+            pass
+
+        from codepilot.llm.slm_engine import OnDeviceSLMEngine
+        slm = OnDeviceSLMEngine()
+        return slm.generate(user_context, history=history)
 
     def _call_mock(self, user_context: str = "") -> Dict[str, Any]:
         """Deterministic mock provider for automated unit tests."""

@@ -196,12 +196,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
                 <div class="agent-controls-row">
                     <select id="providerSelect" class="provider-select-mini">
-                        <option value="groq" selected>Groq Llama 3.3 70B (Fast Cloud Server)</option>
-                        <option value="gemini">Gemini 2.0 Flash (Cloud Server)</option>
-                        <option value="openai">OpenAI GPT-4o-mini (Cloud Server)</option>
-                        <option value="anthropic">Claude 3.5 Sonnet (Cloud Server)</option>
-                        <option value="ollama">Ollama Local LLM</option>
-                        <option value="mock">Zero-Shot Agent Engine</option>
+                        <option value="on_device" selected>On-Device Local SLM Model (Zero Cloud Keys)</option>
+                        <option value="groq">Groq Llama 3.3 70B (Cloud)</option>
+                        <option value="gemini">Gemini 2.0 Flash (Cloud)</option>
+                        <option value="openai">OpenAI GPT-4o-mini (Cloud)</option>
+                        <option value="anthropic">Claude 3.5 Sonnet (Cloud)</option>
+                        <option value="ollama">Ollama Local LLM Endpoint</option>
+                        <option value="mock">Zero-Shot Test Mode</option>
                     </select>
 
                     <input type="text" id="apiKeyInput" class="key-input-mini" value="{{GROQ_API_KEY}}" placeholder="API Key...">
