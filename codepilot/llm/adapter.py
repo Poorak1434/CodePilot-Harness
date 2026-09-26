@@ -376,8 +376,28 @@ class LLMAdapter:
                         data["thought"] = data[k]
                         break
                 if "thought" not in data:
-                    str_vals = [f"{k}: {v}" if not isinstance(v, str) else v for k, v in data.items() if k not in ("tool_call", "plan")]
+                    str_vals = [f"{k}: {v}" if not isinstance(v, str) else v for k, v in data.items() if k not in ("tool_call", "plan", "code")]
                     data["thought"] = "\n".join(str(s) for s in str_vals) if str_vals else json.dumps(data, indent=2)
+
+            # Check if code field is provided or plan has code objects
+            code_content = ""
+            if "code" in data:
+                if isinstance(data["code"], str) and data["code"].strip():
+                    code_content = data["code"].strip()
+                elif isinstance(data["code"], list):
+                    code_content = "\n".join(str(c) for c in data["code"])
+            elif "plan" in data and isinstance(data["plan"], list):
+                code_parts = [p.get("code") for p in data["plan"] if isinstance(p, dict) and "code" in p]
+                if code_parts:
+                    code_content = "\n".join(code_parts)
+
+            if code_content and code_content not in data.get("thought", ""):
+                cur_thought = data.get("thought", "").strip()
+                lang = "python"
+                if "#include" in code_content or "std::" in code_content:
+                    lang = "cpp"
+                data["thought"] = f"{cur_thought}\n\n```{lang}\n{code_content}\n```".strip()
+
             if "tool_call" not in data:
                 data["tool_call"] = {"name": "done", "arguments": {"reason": "Completed"}}
             return data

@@ -75,6 +75,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .tab-bar { height: 35px; min-height: 35px; max-height: 35px; flex-shrink: 0; background: #252526; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; overflow-x: auto; }
         .tab-item { height: 35px; padding: 0 16px; display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: #969696; background: #2d2d2d; border-right: 1px solid var(--border-color); cursor: pointer; }
         .tab-item.active { background: #1e1e1e; color: #ffffff; border-top: 2px solid var(--accent-blue); }
+        .tab-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; padding-right: 12px; }
+        .btn-editor-action { background: #2a2d2e; border: 1px solid #3c3c3c; border-radius: 4px; color: #e2e8f0; font-size: 0.75rem; font-weight: 500; padding: 4px 10px; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px; }
+        .btn-editor-action:hover { background: #38383a; border-color: var(--accent-blue); color: #ffffff; }
 
         /* Code Editor View */
         .editor-workspace { flex: 1 1 0%; min-height: 0; display: flex; overflow: hidden; background: #1e1e1e; position: relative; }
@@ -105,12 +108,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         /* Permanent Bottom Input Bar */
         .agent-input-container { padding: 14px 16px; border-top: 1px solid var(--border-color); background: #181818; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; margin-top: auto; z-index: 10; }
         .input-row { display: flex; background: #252526; border: 1px solid #3c3c3c; border-radius: 8px; padding: 8px 12px; align-items: center; gap: 8px; }
-        .agent-input-box { flex: 1; background: transparent; border: none; outline: none; color: #ffffff; font-size: 0.85rem; }
+        .agent-input-box { flex: 1; background: transparent; border: none; outline: none; color: #ffffff; font-size: 0.85rem; resize: none; min-height: 24px; max-height: 180px; line-height: 1.45; font-family: inherit; }
         
         .agent-controls-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
         .provider-select-mini { background: #252526; border: 1px solid #3c3c3c; color: #cccccc; border-radius: 6px; padding: 6px 8px; font-size: 0.75rem; outline: none; }
         .key-input-mini { background: #252526; border: 1px solid #3c3c3c; color: #ffffff; border-radius: 6px; padding: 4px 8px; font-size: 0.75rem; width: 130px; outline: none; }
-        .btn-send { background: var(--accent-blue); border: none; border-radius: 6px; color: #fff; font-weight: 700; padding: 6px 14px; font-size: 0.8rem; cursor: pointer; }
+        .btn-send { background: var(--accent-blue); border: none; border-radius: 6px; color: #fff; font-weight: 700; padding: 6px 14px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
+        .btn-send:hover { opacity: 0.9; }
 
         .agent-quick-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px; background: #1c1c1c; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
         .btn-agent-action { background: #2a2a2b; border: 1px solid #3c3c3c; border-radius: 6px; color: #e2e8f0; font-size: 0.72rem; font-weight: 500; padding: 4px 8px; cursor: pointer; transition: all 0.2s; }
@@ -155,13 +159,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="editor-container">
             <div class="tab-bar" id="tabBar">
                 <div class="tab-item active" id="currentTab">📄 adapter.py</div>
+                <div class="tab-actions">
+                    <button class="btn-editor-action" onclick="sendEditorCodeToAgent()" title="Send current code in editor to CodePilot Agent">🚀 Send Code to AI</button>
+                    <button class="btn-editor-action" onclick="saveEditorFile()" title="Save current editor content to disk">💾 Save</button>
+                    <button class="btn-editor-action" onclick="clearEditor()" title="Clear editor content">🧹 Clear</button>
+                </div>
             </div>
 
             <div class="editor-workspace">
                 <div class="line-numbers" id="lineNumbers">
                     1<br>2<br>3<br>4<br>5<br>6<br>7<br>8<br>9<br>10<br>11<br>12<br>13<br>14<br>15<br>16<br>17<br>18<br>19<br>20
                 </div>
-                <textarea class="code-area" id="codeEditor" spellcheck="false" readonly># Loading file content...</textarea>
+                <textarea class="code-area" id="codeEditor" spellcheck="false" placeholder="Write, edit, or paste your code here..." oninput="updateLineNumbers()"></textarea>
             </div>
 
             <div class="terminal-panel">
@@ -173,7 +182,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 </div>
                 <div class="terminal-body" id="terminalOutput">
                     <div class="term-line term-cmd">(.venv) poorakpandey@Pooraks-MacBook-Pro AI Harness Hackathon % codepilot gui</div>
-                    <div class="term-line term-success">[🚀 CodePilot Studio GUI Server running at http://localhost:8080]</div>
+                    <div class="term-line term-success">[🚀 CodePilot Studio GUI Server running at http://localhost:8080 & http://localhost:8081]</div>
                 </div>
             </div>
         </div>
@@ -191,20 +200,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 <button class="btn-agent-action" onclick="runAgentPrompt('Inspect the complete repository structure and generate technical architecture documentation and Mermaid diagrams.')">🏛️ Architecture</button>
                 <button class="btn-agent-action" onclick="runAgentPrompt('Generate a complete project showcase demo video for hackathon judges.')">🎬 Demo Video</button>
                 <button class="btn-agent-action" onclick="runAgentPrompt('Execute full multi-agent workflow: audit security, check code quality, generate architecture documentation, and compile demo video.')">⚡ Workflow</button>
+                <button class="btn-agent-action" onclick="promptPasteCode()">📋 Paste Code</button>
             </div>
 
             <div class="chat-trajectory" id="chatTrajectory">
                 <div class="chat-card agent-thought-card">
                     ✨ CodePilot Multi-Agent Orchestrator Ready.<br>
                     Specialized Agents: Security Auditor, Code Quality Agent, Architecture Agent, and Demo Video Agent.<br>
-                    Enter any request below or click a quick action above!
+                    Type any coding question or paste your code snippet below!
                 </div>
             </div>
 
             <div class="agent-input-container">
                 <div class="input-row">
-                    <input type="text" id="agentInput" class="agent-input-box" placeholder="Ask anything, @ to mention, / for actions..." onkeydown="if(event.key==='Enter') executeAgentTask()">
-                    <button class="btn-send" onclick="executeAgentTask()">⚡</button>
+                    <textarea id="agentInput" class="agent-input-box" rows="1" placeholder="Ask anything, describe a task, or paste code... (Enter to send, Shift+Enter for newline)" onkeydown="handleInputKey(event)" oninput="autoResizeInput(this)"></textarea>
+                    <button class="btn-send" id="btnSend" onclick="executeAgentTask()" title="Send prompt or code">⚡</button>
                 </div>
 
                 <div class="agent-controls-row">
@@ -230,7 +240,63 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         window.onload = function() {
             openFile(currentFilePath);
             loadDirectoryTree();
+            
+            // Sync line numbers on editor scroll
+            const editorEl = document.getElementById('codeEditor');
+            editorEl.addEventListener('scroll', function() {
+                document.getElementById('lineNumbers').scrollTop = this.scrollTop;
+            });
         };
+
+        function updateLineNumbers() {
+            const code = document.getElementById('codeEditor').value || '';
+            const lines = code.split('\n').length;
+            let numHtml = '';
+            for (let i = 1; i <= Math.max(lines, 20); i++) {
+                numHtml += i + '<br>';
+            }
+            document.getElementById('lineNumbers').innerHTML = numHtml;
+        }
+
+        function clearEditor() {
+            document.getElementById('codeEditor').value = '';
+            updateLineNumbers();
+            document.getElementById('codeEditor').focus();
+        }
+
+        async function saveEditorFile() {
+            if (!currentFilePath) return;
+            const content = document.getElementById('codeEditor').value;
+            try {
+                const res = await fetch('/api/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: currentFilePath, content: content })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    appendTermLine(`💾 SAVED FILE: ${currentFilePath}`, 'term-success');
+                } else {
+                    appendTermLine(`❌ Save failed: ${data.error}`, 'term-line');
+                }
+            } catch (e) {
+                appendTermLine(`❌ Save error: ${e.message}`, 'term-line');
+            }
+        }
+
+        function sendEditorCodeToAgent() {
+            const code = document.getElementById('codeEditor').value.trim();
+            if (!code) {
+                alert("The editor is currently empty. Open a file or paste code first!");
+                return;
+            }
+            const filename = document.getElementById('currentTab').innerText.replace(/^[📄⚙️📝📁\\s]+/, '').trim() || 'code';
+            const promptText = `Please analyze, review, and explain the following code from ${filename}:\\n\\n\\`\\`\\`\\n${code}\\n\\`\\`\\``;
+            const inputEl = document.getElementById('agentInput');
+            inputEl.value = promptText;
+            autoResizeInput(inputEl);
+            executeAgentTask();
+        }
 
         async function loadDirectoryTree() {
             try {
@@ -262,29 +328,38 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 const data = await res.json();
                 const code = data.content || '';
                 document.getElementById('codeEditor').value = code;
-
-                // Update line numbers
-                const lines = code.split('\n').length;
-                let numHtml = '';
-                for (let i = 1; i <= Math.max(lines, 20); i++) {
-                    numHtml += i + '<br>';
-                }
-                document.getElementById('lineNumbers').innerHTML = numHtml;
+                updateLineNumbers();
             } catch (e) {
                 document.getElementById('codeEditor').value = '# Error loading file ' + filePath;
             }
         }
 
         async function executeAgentTask() {
-            const task = document.getElementById('agentInput').value.trim();
+            const inputEl = document.getElementById('agentInput');
+            const task = inputEl.value.trim();
             if (!task) return;
 
             const provider = document.getElementById('providerSelect').value;
             const apiKey = document.getElementById('apiKeyInput').value.trim();
+            const btnSend = document.getElementById('btnSend');
 
             appendChatCard(`▶ USER: ${task}`, 'user-prompt-card');
             appendTermLine(`▶ MESSAGE: ${task}`, 'term-cmd');
-            document.getElementById('agentInput').value = '';
+            inputEl.value = '';
+            inputEl.style.height = 'auto';
+
+            // Show active thinking state
+            btnSend.disabled = true;
+            btnSend.style.opacity = '0.5';
+            btnSend.innerText = '⏳';
+
+            const thinkingDiv = document.createElement('div');
+            thinkingDiv.id = 'agentThinkingCard';
+            thinkingDiv.className = 'chat-card agent-thought-card';
+            thinkingDiv.innerHTML = `<em>⚡ CodePilot Agent is thinking with <strong>${provider}</strong>...</em>`;
+            const box = document.getElementById('chatTrajectory');
+            box.appendChild(thinkingDiv);
+            box.scrollTop = box.scrollHeight;
 
             try {
                 const res = await fetch('/api/task', {
@@ -292,6 +367,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ issue: task, provider: provider, apiKey: apiKey, history: guiHistory })
                 });
+
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+                }
 
                 const data = await res.json();
 
@@ -319,14 +398,22 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
                 // Render reasoning or direct conversational response
                 if (data.last_thought) {
+                    let thoughtText = data.last_thought;
+                    if (thoughtText.includes('\\n') && !thoughtText.includes('\n')) {
+                        thoughtText = thoughtText.replaceAll('\\n', '\n');
+                    }
+                    if (thoughtText.trim().startsWith('python\n') && !thoughtText.trim().startsWith('```')) {
+                        thoughtText = '```python\n' + thoughtText.trim().substring(7) + '\n```';
+                    }
                     const headerLabel = data.is_conversational ? "✨ CODEPILOT RESPONSE:" : "✨ AI REASONING & WORKFLOW:";
-                    appendChatCard(`${headerLabel}\n\n${data.last_thought}`, 'agent-thought-card');
+                    appendChatCard(`${headerLabel}\n\n${thoughtText}`, 'agent-thought-card');
                 }
 
                 // Render output code if modified file present
                 if (data.output_code) {
                     appendChatCard(`✨ MODIFIED CODE OUTPUT (${data.output_file}):\n\n${data.output_code}`, 'code-output-card');
                     document.getElementById('codeEditor').value = data.output_code;
+                    updateLineNumbers();
                     document.getElementById('currentTab').innerText = '📄 ' + data.output_file.split('/').pop();
                 }
 
@@ -340,13 +427,45 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 }
 
             } catch (e) {
+                appendChatCard(`❌ Connection / Request Error: ${e.message}\nPlease ensure CodePilot GUI server is active and reachable.`, 'agent-thought-card');
                 appendTermLine(`❌ Task Error: ${e.message}`, 'term-line');
+            } finally {
+                btnSend.disabled = false;
+                btnSend.style.opacity = '1.0';
+                btnSend.innerText = '⚡';
+                const ind = document.getElementById('agentThinkingCard');
+                if (ind) ind.remove();
             }
         }
 
+        function handleInputKey(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                executeAgentTask();
+            }
+        }
+
+        function autoResizeInput(el) {
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 180) + 'px';
+        }
+
         function runAgentPrompt(promptText) {
-            document.getElementById('agentInput').value = promptText;
+            const inputEl = document.getElementById('agentInput');
+            inputEl.value = promptText;
+            autoResizeInput(inputEl);
             executeAgentTask();
+        }
+
+        function promptPasteCode() {
+            const code = prompt("Paste your code snippet or function below:");
+            if (code && code.trim()) {
+                const inputEl = document.getElementById('agentInput');
+                const cur = inputEl.value ? inputEl.value + "\n\n" : "";
+                inputEl.value = cur + "```\n" + code.trim() + "\n```\n";
+                autoResizeInput(inputEl);
+                inputEl.focus();
+            }
         }
 
         async function cloneRemoteRepo() {
@@ -375,6 +494,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const box = document.getElementById('chatTrajectory');
             const div = document.createElement('div');
             div.className = `chat-card ${className}`;
+            div.style.whiteSpace = 'pre-wrap';
+            div.style.wordBreak = 'break-word';
             div.innerText = text;
             box.appendChild(div);
             box.scrollTop = box.scrollHeight;
@@ -489,6 +610,20 @@ class CodePilotGUIHandler(BaseHTTPRequestHandler):
                 "artifacts": report.get("artifacts", {})
             })
 
+        elif parsed.path == "/api/save":
+            file_rel = payload.get("path", "")
+            content = payload.get("content", "")
+            if not file_rel:
+                self._send_json({"success": False, "error": "No path specified"})
+                return
+            target_p = (Path(self.repo_path) / file_rel).resolve()
+            try:
+                target_p.parent.mkdir(parents=True, exist_ok=True)
+                target_p.write_text(content, encoding="utf-8")
+                self._send_json({"success": True, "path": file_rel})
+            except Exception as e:
+                self._send_json({"success": False, "error": str(e)})
+
         elif parsed.path == "/api/clone":
             url = payload.get("url", "")
             if not url:
@@ -532,22 +667,55 @@ class CodePilotGUIHandler(BaseHTTPRequestHandler):
 
 
 def start_gui_server(repo_path: str = ".", port: int = 8080, open_browser: bool = True):
-    CodePilotGUIHandler.repo_path = repo_path
-    server_address = ("", port)
+    CodePilotGUIHandler.repo_path = str(Path(repo_path).resolve())
     
-    try:
-        httpd = HTTPServer(server_address, CodePilotGUIHandler)
-    except OSError:
-        port = port + 1
-        httpd = HTTPServer(("", port), CodePilotGUIHandler)
+    ports_to_try = [port]
+    if port == 8080 and 8081 not in ports_to_try:
+        ports_to_try.append(8081)
+    elif port == 8081 and 8080 not in ports_to_try:
+        ports_to_try.append(8080)
 
-    url = f"http://localhost:{port}"
-    print(f"\033[1;32m[🚀 CodePilot Studio GUI Server running at {url}]\033[0m")
+    servers = []
+    for p in ports_to_try:
+        try:
+            httpd = HTTPServer(("", p), CodePilotGUIHandler)
+            servers.append((p, httpd))
+        except OSError:
+            pass
+
+    if not servers:
+        # Fallback to any open port between 8082 and 8090
+        for p in range(8082, 8090):
+            try:
+                httpd = HTTPServer(("", p), CodePilotGUIHandler)
+                servers.append((p, httpd))
+                break
+            except OSError:
+                continue
+
+    if not servers:
+        print("[❌ Error: Could not bind to any port for CodePilot GUI]")
+        return
+
+    main_port, main_httpd = servers[0]
+    print(f"\033[1;32m[🚀 CodePilot Studio GUI Server running at http://localhost:{main_port}]\033[0m")
+    
+    # Start secondary listeners in daemon threads so BOTH 8080 and 8081 are active
+    for sec_port, sec_httpd in servers[1:]:
+        print(f"\033[1;36m[🔗 Companion listener active at http://localhost:{sec_port}]\033[0m")
+        t = threading.Thread(target=sec_httpd.serve_forever, daemon=True)
+        t.start()
+
     if open_browser:
-        webbrowser.open(url)
+        webbrowser.open(f"http://localhost:{main_port}")
 
     try:
-        httpd.serve_forever()
+        main_httpd.serve_forever()
     except KeyboardInterrupt:
         print("\n[Stopping CodePilot GUI Server. Goodbye!]")
-        httpd.server_close()
+        for _, s in servers:
+            try:
+                s.server_close()
+            except Exception:
+                pass
+

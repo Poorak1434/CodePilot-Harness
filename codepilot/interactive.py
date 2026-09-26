@@ -254,6 +254,10 @@ class InteractiveShell:
         if is_conversational or not report.get("verification", {}).get("files_modified"):
             # Conversational Response - Render response text directly!
             response_text = report.get("last_thought") or report.get("response_text", "")
+            if "\\n" in response_text and "\n" not in response_text:
+                response_text = response_text.replace("\\n", "\n")
+            if response_text.strip().startswith("python\n") and not response_text.strip().startswith("```"):
+                response_text = "```python\n" + response_text.strip()[7:] + "\n```"
             print("\n\033[1;36mCodePilot:\033[0m")
             print(response_text)
             print()
@@ -274,6 +278,10 @@ class InteractiveShell:
                 print("=" * 70 + "\n")
 
             thought_text = report.get("last_thought", "")
+            if "\\n" in thought_text and "\n" not in thought_text:
+                thought_text = thought_text.replace("\\n", "\n")
+            if thought_text.strip().startswith("python\n") and not thought_text.strip().startswith("```"):
+                thought_text = "```python\n" + thought_text.strip()[7:] + "\n```"
             print("\n\033[1;36mCodePilot:\033[0m")
             print(thought_text)
             print()
